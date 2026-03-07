@@ -73,6 +73,10 @@ export default function App() {
     setLineup(newLineup);
   };
 
+  const handleUpdateLineup = (newLineup: GameLineup) => {
+    setLineup(newLineup);
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F5F4] text-zinc-900 font-sans selection:bg-emerald-100">
       {/* Header */}
@@ -142,7 +146,13 @@ export default function App() {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
             >
-              {lineup && <LineupTable lineup={lineup} players={players} />}
+              {lineup && (
+                <LineupTable 
+                  lineup={lineup} 
+                  players={players} 
+                  onUpdateLineup={handleUpdateLineup} 
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>
