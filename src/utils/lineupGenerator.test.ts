@@ -4,17 +4,31 @@ import { generateLineup } from './lineupGenerator';
 import { getSampleRoster } from './sampleData';
 import { Player, Position } from '../types';
 
+const TEST_SEED = 12345;
+
 describe('generateLineup', () => {
   const players12 = getSampleRoster({ playerCount: 12 });
   const players10 = getSampleRoster({ playerCount: 10 });
 
   it('generates a lineup for 6 innings', () => {
-    const lineup = generateLineup(players12);
+    const lineup = generateLineup(players12, TEST_SEED);
     expect(lineup).toHaveLength(6);
   });
 
+  it('is deterministic with the same seed', () => {
+    const lineup1 = generateLineup(players12, TEST_SEED);
+    const lineup2 = generateLineup(players12, TEST_SEED);
+    expect(lineup1).toEqual(lineup2);
+  });
+
+  it('is different with different seeds', () => {
+    const lineup1 = generateLineup(players12, 123);
+    const lineup2 = generateLineup(players12, 456);
+    expect(lineup1).not.toEqual(lineup2);
+  });
+
   it('assigns 10 players to positions each inning', () => {
-    const lineup = generateLineup(players12);
+    const lineup = generateLineup(players12, TEST_SEED);
     lineup.forEach(inning => {
       const assigned = Object.values(inning.assignments).filter(id => id !== null);
       // P, C, 1B, 2B, 3B, SS, LF, LC, RC, RF = 10 positions
@@ -24,7 +38,7 @@ describe('generateLineup', () => {
 
   describe('Rule A: No player on bench for > 2 consecutive innings', () => {
     it('satisfies Rule A', () => {
-      const lineup = generateLineup(players12);
+      const lineup = generateLineup(players12, TEST_SEED);
       players12.forEach(player => {
         let consecutiveBench = 0;
         lineup.forEach(inning => {
@@ -42,7 +56,7 @@ describe('generateLineup', () => {
 
   describe('Rule B: No player sits twice before everyone has sat once', () => {
     it('satisfies Rule B', () => {
-      const lineup = generateLineup(players12);
+      const lineup = generateLineup(players12, TEST_SEED);
       const satOnce = new Set<string>();
       const satTwice = new Set<string>();
 
@@ -70,7 +84,7 @@ describe('generateLineup', () => {
 
   describe('Rule D: Players playing 4+ innings must play 1+ infield and 1+ outfield', () => {
     it('satisfies Rule D', () => {
-      const lineup = generateLineup(players12);
+      const lineup = generateLineup(players12, TEST_SEED);
       const INFIELD = ['P', 'C', '1B', '2B', '3B', 'SS'];
       const OUTFIELD = ['LF', 'LC', 'RC', 'RF'];
 
@@ -100,7 +114,7 @@ describe('generateLineup', () => {
   describe('Rule C: No player shall sit out three innings unless every player has sat for at least two full innings', () => {
     it('satisfies Rule C', () => {
       const players13 = getSampleRoster({ playerCount: 13 }); // 3 sit per inning
-      const lineup = generateLineup(players13);
+      const lineup = generateLineup(players13, TEST_SEED);
       
       players13.forEach(player => {
         const mySatCount = lineup.filter(inning => !Object.values(inning.assignments).includes(player.id)).length;
@@ -119,7 +133,7 @@ describe('generateLineup', () => {
 
   describe('Rule F: No one plays the same position for 3 innings', () => {
     it('satisfies Rule F', () => {
-      const lineup = generateLineup(players12);
+      const lineup = generateLineup(players12, TEST_SEED);
       players12.forEach(player => {
         const positionCounts: Record<string, number> = {};
         lineup.forEach(inning => {
@@ -136,7 +150,7 @@ describe('generateLineup', () => {
 
   describe('Rule G: Balance total innings played', () => {
     it('balances total innings played within 1 inning difference', () => {
-      const lineup = generateLineup(players12);
+      const lineup = generateLineup(players12, TEST_SEED);
       const playCounts = players12.map(player => {
         return lineup.filter(inning => Object.values(inning.assignments).includes(player.id)).length;
       });
@@ -149,7 +163,7 @@ describe('generateLineup', () => {
 
   describe('Rule E: Team size specific rules', () => {
     it('12 players: everyone plays infield once, outfield once, and sits once (over 6 innings)', () => {
-      const lineup = generateLineup(players12);
+      const lineup = generateLineup(players12, TEST_SEED);
       const INFIELD = ['P', 'C', '1B', '2B', '3B', 'SS'];
       const OUTFIELD = ['LF', 'LC', 'RC', 'RF'];
 
@@ -178,7 +192,7 @@ describe('generateLineup', () => {
 
     it('11 players: everyone plays infield once and outfield once in 5 innings', () => {
       const players11 = getSampleRoster({ playerCount: 11 });
-      const lineup = generateLineup(players11);
+      const lineup = generateLineup(players11, TEST_SEED);
       const INFIELD = ['P', 'C', '1B', '2B', '3B', 'SS'];
       const OUTFIELD = ['LF', 'LC', 'RC', 'RF'];
 
