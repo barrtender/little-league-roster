@@ -50,7 +50,7 @@ Generated with https://aistudio.google.com/
 
 ## Links
 
-- **Live Application**: [little-league-roster-qjy5806ir-barrtenders-projects.vercel.app](https://little-league-roster-qjy5806ir-barrtenders-projects.vercel.app)
+- **Live Application**: [https://little-league-roster.vercel.app/](https://little-league-roster.vercel.app/)
 - **Vercel Dashboard (Maintainers)**: [Vercel Project](https://vercel.com/barrtenders-projects/little-league-roster)
 
 ## License
