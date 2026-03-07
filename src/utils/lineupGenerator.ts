@@ -14,7 +14,11 @@ export function generateLineup(players: Player[]): GameLineup {
     bench: 0,
     pitching: 0,
     catching: 0,
-    totalPlayed: 0
+    totalPlayed: 0,
+    consecutiveBench: 0,
+    lastPosition: null as Position | null,
+    positionCounts: {} as Record<string, number>,
+    history: [] as (Position | 'Bench')[]
   }));
 
   const getStat = (id: string) => stats.find(s => s.id === id)!;
@@ -28,90 +32,162 @@ export function generateLineup(players: Player[]): GameLineup {
       }
     };
 
-    const availablePlayers = [...players].sort(() => Math.random() - 0.5);
     const assignedThisInning = new Set<string>();
 
-    // 1. Assign Pitcher
-    const pitcher = availablePlayers.find(p => 
-      p.canPitch && 
-      getStat(p.id).pitching < 2 && 
-      !assignedThisInning.has(p.id)
-    );
-    if (pitcher) {
-      inningAssignment.assignments.P = pitcher.id;
-      assignedThisInning.add(pitcher.id);
-      getStat(pitcher.id).pitching++;
-      getStat(pitcher.id).infield++;
-      getStat(pitcher.id).totalPlayed++;
-    }
+    // Helper to check if a player can play a position this inning
+    const canPlayPosition = (playerId: string, pos: Position) => {
+      const s = getStat(playerId);
+      // Rule F: No one plays same position for 3 innings (total)
+      if ((s.positionCounts[pos] || 0) >= 2) return false; 
+      // Rule F (stricter): No one plays same position for 3 innings (consecutive) - usually interpreted as total in LL
+      
+      if (pos === 'P') {
+        const p = players.find(player => player.id === playerId)!;
+        if (!p.canPitch || s.pitching >= 2) return false;
+      }
+      if (pos === 'C') {
+        const p = players.find(player => player.id === playerId)!;
+        if (!p.canCatch) return false;
+      }
+      return true;
+    };
 
-    // 2. Assign Catcher
-    const catcher = availablePlayers.find(p => 
-      p.canCatch && 
-      !assignedThisInning.has(p.id)
-    );
-    if (catcher) {
-      inningAssignment.assignments.C = catcher.id;
-      assignedThisInning.add(catcher.id);
-      getStat(catcher.id).catching++;
-      getStat(catcher.id).infield++;
-      getStat(catcher.id).totalPlayed++;
-    }
-
-    // 3. Assign Bench (if more than 10 players)
-    // Constraint: No player on bench twice before everyone has sat once.
+    // 1. Assign Bench first to satisfy bench rules
     if (players.length > 10) {
       const numBench = players.length - 10;
+      const benchCandidates = [...players]
+        .filter(p => {
+          const s = getStat(p.id);
+          // Rule A: No player on bench for > 2 consecutive innings
+          if (s.consecutiveBench >= 2) return false;
+          return true;
+        })
+        .sort((a, b) => {
+          const sA = getStat(a.id);
+          const sB = getStat(b.id);
+          
+          // Rule B: No player sits twice before everyone has sat once
+          // Rule C: No player sits 3 times unless everyone has sat twice
+          if (sA.bench !== sB.bench) return sA.bench - sB.bench;
+          
+          // Tie-break: Prefer sitting those who are NOT specialists if we are low on them
+          const pA = players.find(p => p.id === a.id)!;
+          const pB = players.find(p => p.id === b.id)!;
+          const isSpecialistA = pA.canPitch || pA.canCatch;
+          const isSpecialistB = pB.canPitch || pB.canCatch;
+          if (isSpecialistA !== isSpecialistB) return isSpecialistA ? 1 : -1;
+
+          // Tie-break with total played (prefer those who played more to sit)
+          return sB.totalPlayed - sA.totalPlayed;
+        });
+
       for (let b = 0; b < numBench; b++) {
-        // Sort players by bench count (ascending) to ensure rotation
-        const benchCandidate = availablePlayers
-          .filter(p => !assignedThisInning.has(p.id))
-          .sort((a, b) => getStat(a.id).bench - getStat(b.id).bench)[0];
-        
-        if (benchCandidate) {
-          assignedThisInning.add(benchCandidate.id);
-          getStat(benchCandidate.id).bench++;
+        const chosen = benchCandidates.find(p => !assignedThisInning.has(p.id));
+        if (chosen) {
+          assignedThisInning.add(chosen.id);
+          const s = getStat(chosen.id);
+          s.bench++;
+          s.consecutiveBench++;
+          s.history.push('Bench');
         }
       }
     }
 
-    // 4. Assign remaining Infield (1B, 2B, 3B, SS)
-    const remainingInfield = ['1B', '2B', '3B', 'SS'] as Position[];
-    for (const pos of remainingInfield) {
-      // Prioritize players who have played FEWER infield innings
-      const candidate = availablePlayers
-        .filter(p => !assignedThisInning.has(p.id))
-        .sort((a, b) => {
-          const statA = getStat(a.id);
-          const statB = getStat(b.id);
-          // Balance infield/outfield ratio
-          return (statA.infield - statA.outfield) - (statB.infield - statB.outfield);
-        })[0];
-
-      if (candidate) {
-        inningAssignment.assignments[pos] = candidate.id;
-        assignedThisInning.add(candidate.id);
-        getStat(candidate.id).infield++;
-        getStat(candidate.id).totalPlayed++;
+    // Update consecutive bench for those NOT on bench
+    players.forEach(p => {
+      if (!assignedThisInning.has(p.id)) {
+        getStat(p.id).consecutiveBench = 0;
       }
+    });
+
+    // 2. Assign Catcher first (usually the most restricted position)
+    const catcherPos: Position = 'C';
+    const catcher = [...players]
+      .filter(p => !assignedThisInning.has(p.id) && canPlayPosition(p.id, catcherPos))
+      .sort((a, b) => {
+        const sA = getStat(a.id);
+        const sB = getStat(b.id);
+        if (sA.catching !== sB.catching) return sA.catching - sB.catching;
+        
+        // Tie-break: prefer those who CANNOT pitch to catch, saving pitchers
+        const pA = players.find(p => p.id === a.id)!;
+        const pB = players.find(p => p.id === b.id)!;
+        if (pA.canPitch !== pB.canPitch) return pA.canPitch ? 1 : -1;
+        
+        return 0;
+      })[0];
+    
+    if (catcher) {
+      inningAssignment.assignments.C = catcher.id;
+      assignedThisInning.add(catcher.id);
+      const s = getStat(catcher.id);
+      s.catching++;
+      s.infield++;
+      s.totalPlayed++;
+      s.positionCounts[catcherPos] = (s.positionCounts[catcherPos] || 0) + 1;
+      s.history.push(catcherPos);
     }
 
-    // 5. Assign Outfield (LF, LC, RC, RF)
-    for (const pos of OUTFIELD_POSITIONS) {
-      const candidate = availablePlayers
-        .filter(p => !assignedThisInning.has(p.id))
+    // 3. Assign Pitcher
+    const pitcherPos: Position = 'P';
+    const pitcher = [...players]
+      .filter(p => !assignedThisInning.has(p.id) && canPlayPosition(p.id, pitcherPos))
+      .sort((a, b) => {
+        const sA = getStat(a.id);
+        const sB = getStat(b.id);
+        if (sA.pitching !== sB.pitching) return sA.pitching - sB.pitching;
+
+        // Tie-break: prefer those who CANNOT catch to pitch, saving catchers
+        const pA = players.find(p => p.id === a.id)!;
+        const pB = players.find(p => p.id === b.id)!;
+        if (pA.canCatch !== pB.canCatch) return pA.canCatch ? 1 : -1;
+        
+        return 0;
+      })[0];
+    
+    if (pitcher) {
+      inningAssignment.assignments.P = pitcher.id;
+      assignedThisInning.add(pitcher.id);
+      const s = getStat(pitcher.id);
+      s.pitching++;
+      s.infield++;
+      s.totalPlayed++;
+      s.positionCounts[pitcherPos] = (s.positionCounts[pitcherPos] || 0) + 1;
+      s.history.push(pitcherPos);
+    }
+
+    // 4. Assign remaining positions (Infield then Outfield)
+    const remainingPositions = [...INFIELD_POSITIONS.filter(p => p !== 'P' && p !== 'C'), ...OUTFIELD_POSITIONS];
+    
+    for (const pos of remainingPositions) {
+      const isInfield = INFIELD_POSITIONS.includes(pos);
+      
+      const candidate = [...players]
+        .filter(p => !assignedThisInning.has(p.id) && canPlayPosition(p.id, pos))
         .sort((a, b) => {
-          const statA = getStat(a.id);
-          const statB = getStat(b.id);
-          // Balance infield/outfield ratio (prefer those with more infield than outfield)
-          return (statA.outfield - statA.infield) - (statB.outfield - statB.infield);
+          const sA = getStat(a.id);
+          const sB = getStat(b.id);
+
+          // Rule E/D: Balance Infield/Outfield
+          // We want to prioritize players who need more of this type (Infield or Outfield)
+          if (isInfield) {
+            if (sA.infield !== sB.infield) return sA.infield - sB.infield;
+            return sB.outfield - sA.outfield; // Prefer those with more outfield
+          } else {
+            if (sA.outfield !== sB.outfield) return sA.outfield - sB.outfield;
+            return sB.infield - sA.infield; // Prefer those with more infield
+          }
         })[0];
 
       if (candidate) {
         inningAssignment.assignments[pos] = candidate.id;
         assignedThisInning.add(candidate.id);
-        getStat(candidate.id).outfield++;
-        getStat(candidate.id).totalPlayed++;
+        const s = getStat(candidate.id);
+        if (isInfield) s.infield++;
+        else s.outfield++;
+        s.totalPlayed++;
+        s.positionCounts[pos] = (s.positionCounts[pos] || 0) + 1;
+        s.history.push(pos);
       }
     }
 

@@ -32,6 +32,7 @@ export const PlayerSummary: React.FC<PlayerSummaryProps> = ({ lineup, players })
     });
 
     return {
+      id: player.id,
       name: player.name,
       pitcher,
       catcher,
@@ -59,7 +60,7 @@ export const PlayerSummary: React.FC<PlayerSummaryProps> = ({ lineup, players })
           <tbody>
             {stats.map((stat, idx) => (
               <motion.tr 
-                key={stat.name}
+                key={stat.id}
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.05 }}

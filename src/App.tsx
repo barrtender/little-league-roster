@@ -3,7 +3,8 @@ import { Player, GameLineup } from './types';
 import { PlayerInput } from './components/PlayerInput';
 import { LineupTable } from './components/LineupTable';
 import { generateLineup } from './utils/lineupGenerator';
-import { ClipboardList, Users, RefreshCw, ChevronLeft } from 'lucide-react';
+import { getSampleRoster } from './utils/sampleData';
+import { ClipboardList, Users, RefreshCw, ChevronLeft, Beaker } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
@@ -77,6 +78,13 @@ export default function App() {
     setLineup(newLineup);
   };
 
+  const handleLoadSample = () => {
+    if (players.length > 0 && !confirm('This will replace your current roster. Continue?')) {
+      return;
+    }
+    setPlayers(getSampleRoster());
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F5F4] text-zinc-900 font-sans selection:bg-emerald-100">
       {/* Header */}
@@ -93,6 +101,15 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            {view === 'input' && (
+              <button
+                onClick={handleLoadSample}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-zinc-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all border border-transparent hover:border-emerald-100"
+              >
+                <Beaker size={18} />
+                <span className="hidden sm:inline">Sample Roster</span>
+              </button>
+            )}
             {view === 'output' && (
               <button
                 onClick={() => setView('input')}
