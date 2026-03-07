@@ -2,6 +2,8 @@
 
 A smart baseball lineup generator for little league teams that balances infield/outfield time and manages pitching limits.
 
+Generated with https://aistudio.google.com/
+
 ## Features
 
 - **Smart Rotation Algorithm**: 
