@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Player } from '../types';
 import { UserPlus, Trash2, Check, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -15,6 +15,7 @@ export const PlayerInput: React.FC<PlayerInputProps> = ({ players, onAddPlayer, 
   const [newName, setNewName] = useState('');
   const [newCanPitch, setNewCanPitch] = useState(false);
   const [newCanCatch, setNewCanCatch] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +29,9 @@ export const PlayerInput: React.FC<PlayerInputProps> = ({ players, onAddPlayer, 
     setNewName('');
     setNewCanPitch(false);
     setNewCanCatch(false);
+    
+    // Return focus to input
+    inputRef.current?.focus();
   };
 
   return (
@@ -37,11 +41,13 @@ export const PlayerInput: React.FC<PlayerInputProps> = ({ players, onAddPlayer, 
       <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-4 mb-8 p-4 bg-zinc-50 rounded-xl border border-zinc-200">
         <div className="flex-1">
           <input
+            ref={inputRef}
             type="text"
             placeholder="Player Name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             className="w-full px-4 py-2 rounded-lg border border-zinc-300 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+            autoFocus
           />
         </div>
         <div className="flex items-center gap-4 px-2">
