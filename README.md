@@ -46,26 +46,10 @@ A smart baseball lineup generator for little league teams that balances infield/
    npm run dev
    ```
 
-## Deployment
+## Links
 
-### Hosting on Vercel or Netlify (Recommended)
-
-This project is a standard Vite SPA. To host it:
-
-1. Push your code to a GitHub repository.
-2. Connect your repository to [Vercel](https://vercel.com) or [Netlify](https://netlify.com).
-3. The build settings should be automatically detected:
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-
-### Hosting on GitHub Pages
-
-1. Install the `gh-pages` package:
-   ```bash
-   npm install gh-pages --save-dev
-   ```
-2. Add deployment scripts to `package.json`.
-3. Run `npm run deploy`.
+- **Live Application**: [little-league-roster-qjy5806ir-barrtenders-projects.vercel.app](https://little-league-roster-qjy5806ir-barrtenders-projects.vercel.app)
+- **Vercel Dashboard (Maintainers)**: [Vercel Project](https://vercel.com/barrtenders-projects/little-league-roster)
 
 ## License
 
