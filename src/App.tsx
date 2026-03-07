@@ -11,14 +11,32 @@ export default function App() {
   const [lineup, setLineup] = useState<GameLineup | null>(null);
   const [view, setView] = useState<'input' | 'output'>('input');
 
-  // Load from local storage on mount
+  // Load from local storage or URL on mount
   useEffect(() => {
-    const saved = localStorage.getItem('baseball-roster');
-    if (saved) {
+    const params = new URLSearchParams(window.location.search);
+    const sharedData = params.get('data');
+
+    if (sharedData) {
       try {
-        setPlayers(JSON.parse(saved));
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(sharedData))));
+        if (decoded.players) setPlayers(decoded.players);
+        if (decoded.lineup) {
+          setLineup(decoded.lineup);
+          setView('output');
+        }
+        // Clear the URL parameter after loading to avoid re-loading on refresh
+        window.history.replaceState({}, '', window.location.pathname);
       } catch (e) {
-        console.error('Failed to load roster', e);
+        console.error('Failed to load shared data', e);
+      }
+    } else {
+      const saved = localStorage.getItem('baseball-roster');
+      if (saved) {
+        try {
+          setPlayers(JSON.parse(saved));
+        } catch (e) {
+          console.error('Failed to load roster', e);
+        }
       }
     }
   }, []);
