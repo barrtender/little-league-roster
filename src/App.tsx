@@ -4,7 +4,7 @@ import { PlayerInput } from './components/PlayerInput';
 import { LineupTable } from './components/LineupTable';
 import { generateLineup } from './utils/lineupGenerator';
 import { getSampleRoster } from './utils/sampleData';
-import { ClipboardList, Users, RefreshCw, ChevronLeft, Beaker } from 'lucide-react';
+import { ClipboardList, Users, RefreshCw, ChevronLeft, Beaker, Github } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
@@ -186,8 +186,20 @@ export default function App() {
             <span className="w-px h-3 bg-zinc-200" />
             <span>6 Innings</span>
           </div>
-          <div className="hidden sm:block">
-            Balanced Infield/Outfield • Pitching Limits • Fair Bench Rotation
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:block">
+              Balanced Infield/Outfield • Pitching Limits • Fair Bench Rotation
+            </div>
+            <span className="hidden sm:block w-px h-3 bg-zinc-200" />
+            <a 
+              href="https://github.com/barrtender/little-league-roster" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 hover:text-emerald-600 transition-colors"
+            >
+              <Github size={14} />
+              <span>GitHub</span>
+            </a>
           </div>
         </div>
       </footer>
