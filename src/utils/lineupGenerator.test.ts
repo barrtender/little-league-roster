@@ -213,5 +213,78 @@ describe('generateLineup', () => {
         expect(outfield).toBeGreaterThanOrEqual(1);
       });
     });
+
+    it('handles roster with no designated pitchers or catchers', () => {
+      const noSpecialists = getSampleRoster({ 
+        playerCount: 12,
+        pitcherCount: 0,
+        catcherCount: 0,
+        pitcherAndCatcherCount: 0
+      });
+      
+      // Verify no one is marked as pitcher or catcher
+      noSpecialists.forEach(p => {
+        expect(p.canPitch).toBe(false);
+        expect(p.canCatch).toBe(false);
+      });
+
+      const lineup = generateLineup(noSpecialists, TEST_SEED);
+      
+      // P and C should be null, but other 8 positions should be filled
+      lineup.forEach(inning => {
+        const assigned = Object.values(inning.assignments).filter(id => id !== null);
+        expect(assigned).toHaveLength(8);
+        expect(inning.assignments.P).toBeNull();
+        expect(inning.assignments.C).toBeNull();
+      });
+
+      // Should still balance infield/outfield for the remaining positions
+      const INFIELD = ['1B', '2B', '3B', 'SS'];
+      const OUTFIELD = ['LF', 'LC', 'RC', 'RF'];
+
+      noSpecialists.forEach(player => {
+        let infield = 0;
+        let outfield = 0;
+        lineup.forEach(inning => {
+          Object.entries(inning.assignments).forEach(([pos, id]) => {
+            if (id === player.id) {
+              if (INFIELD.includes(pos)) infield++;
+              if (OUTFIELD.includes(pos)) outfield++;
+            }
+          });
+        });
+        // With 12 players and 8 positions, everyone plays 4 innings.
+        // 4 positions are infield, 4 are outfield.
+        // Everyone should play 2 infield and 2 outfield.
+        expect(infield).toBe(2);
+        expect(outfield).toBe(2);
+      });
+    });
+
+    it('verifies each kid has equal (within 1) infield and outfield innings as every other kid', () => {
+      const lineup = generateLineup(players12, TEST_SEED);
+      const INFIELD = ['P', 'C', '1B', '2B', '3B', 'SS'];
+      const OUTFIELD = ['LF', 'LC', 'RC', 'RF'];
+
+      const stats = players12.map(player => {
+        let infield = 0;
+        let outfield = 0;
+        lineup.forEach(inning => {
+          Object.entries(inning.assignments).forEach(([pos, id]) => {
+            if (id === player.id) {
+              if (INFIELD.includes(pos)) infield++;
+              if (OUTFIELD.includes(pos)) outfield++;
+            }
+          });
+        });
+        return { name: player.name, infield, outfield };
+      });
+
+      const infieldCounts = stats.map(s => s.infield);
+      const outfieldCounts = stats.map(s => s.outfield);
+
+      expect(Math.max(...infieldCounts) - Math.min(...infieldCounts)).toBeLessThanOrEqual(1);
+      expect(Math.max(...outfieldCounts) - Math.min(...outfieldCounts)).toBeLessThanOrEqual(1);
+    });
   });
 });
