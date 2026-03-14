@@ -81,7 +81,7 @@ export const PlayerInput: React.FC<PlayerInputProps> = ({ players, onAddPlayer, 
 
       <div className="space-y-3">
         <AnimatePresence mode="popLayout">
-          {players.map((player) => (
+          {[...players].sort((a, b) => a.name.localeCompare(b.name)).map((player) => (
             <motion.div
               key={player.id}
               initial={{ opacity: 0, y: 10 }}

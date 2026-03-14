@@ -10,8 +10,10 @@ interface PlayerSummaryProps {
 }
 
 export const PlayerSummary: React.FC<PlayerSummaryProps> = ({ lineup, players }) => {
-  const stats = players.map(player => {
-    let pitcher = 0;
+  const stats = [...players]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(player => {
+      let pitcher = 0;
     let catcher = 0;
     let infield = 0;
     let outfield = 0;
