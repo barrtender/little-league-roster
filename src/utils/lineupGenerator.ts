@@ -1,6 +1,6 @@
 
 import { Player, GameLineup, Position, InningAssignment } from '../types';
-import { INFIELD_POSITIONS, OUTFIELD_POSITIONS, ALL_PLAYING_POSITIONS } from '../constants';
+import { INFIELD_POSITIONS, OUTFIELD_POSITIONS } from '../constants';
 
 // Simple seeded random generator (Mulberry32)
 function createRandom(seed: number) {
@@ -22,7 +22,7 @@ function shuffle<T>(array: T[], random: () => number): T[] {
   return shuffled;
 }
 
-export function generateLineup(players: Player[], seed?: number): GameLineup {
+export function generateLineup(players: Player[], seed?: number, locks?: GameLineup): GameLineup {
   const numInnings = 6;
   
   // Use provided seed or a random one
@@ -66,6 +66,45 @@ export function generateLineup(players: Player[], seed?: number): GameLineup {
 
       const assignedThisInning = new Set<string>();
 
+      // 0. Apply locks for this inning first
+      const inningLocks = locks?.find(l => l.inning === i);
+      if (inningLocks) {
+        // Only lock positions that are explicitly marked as locked
+        const positionsToLock = inningLocks.lockedPositions || [];
+
+        positionsToLock.forEach((pos) => {
+          const playerId = inningLocks.assignments[pos];
+          if (playerId && shuffledPlayers.some(p => p.id === playerId)) {
+            const position = pos as Position;
+            inningAssignment.assignments[position] = playerId;
+            assignedThisInning.add(playerId);
+            
+            const s = getStat(playerId);
+            if (position === 'Bench') {
+              s.bench++;
+              s.consecutiveBench++;
+            } else {
+              const isInfield = INFIELD_POSITIONS.includes(position);
+              if (isInfield) s.infield++;
+              else s.outfield++;
+              
+              if (position === 'P') s.pitching++;
+              if (position === 'C') s.catching++;
+              
+              s.totalPlayed++;
+              s.positionCounts[position] = (s.positionCounts[position] || 0) + 1;
+            }
+            s.history.push(position);
+            
+            // Also mark it as locked in the new assignment so it persists if we regenerate again
+            if (!inningAssignment.lockedPositions) inningAssignment.lockedPositions = [];
+            if (!inningAssignment.lockedPositions.includes(position)) {
+              inningAssignment.lockedPositions.push(position);
+            }
+          }
+        });
+      }
+
       const fairInfield = Math.ceil((numInnings * 6) / shuffledPlayers.length);
       const fairOutfield = Math.ceil((numInnings * 4) / shuffledPlayers.length);
 
@@ -94,10 +133,20 @@ export function generateLineup(players: Player[], seed?: number): GameLineup {
 
       // 1. Assign Bench first to satisfy bench rules
       const activePositionsCount = (anyPitchers ? 1 : 0) + (anyCatchers ? 1 : 0) + 8;
-      if (shuffledPlayers.length > activePositionsCount) {
-        const numBench = shuffledPlayers.length - activePositionsCount;
+      const totalBenchNeeded = Math.max(0, shuffledPlayers.length - activePositionsCount);
+      
+      // Count how many are already assigned to bench via locks
+      const alreadyOnBenchCount = Array.from(assignedThisInning).filter(id => {
+          const s = getStat(id);
+          return s.history[s.history.length - 1] === 'Bench';
+      }).length;
+      
+      const numBenchRemaining = Math.max(0, totalBenchNeeded - alreadyOnBenchCount);
+
+      if (numBenchRemaining > 0) {
         const benchCandidates = [...shuffledPlayers]
           .filter(p => {
+            if (assignedThisInning.has(p.id)) return false;
             const s = getStat(p.id);
             // Rule A: No player on bench for > 2 consecutive innings
             if (s.consecutiveBench >= 2) return false;
@@ -107,22 +156,18 @@ export function generateLineup(players: Player[], seed?: number): GameLineup {
             const sA = getStat(a.id);
             const sB = getStat(b.id);
             
-            // Rule B: No player sits twice before everyone has sat once
-            // Rule C: No player sits 3 times unless everyone has sat twice
             if (sA.bench !== sB.bench) return sA.bench - sB.bench;
             
-            // Tie-break: Prefer sitting those who are NOT specialists if we are low on them
             const pA = shuffledPlayers.find(p => p.id === a.id)!;
             const pB = shuffledPlayers.find(p => p.id === b.id)!;
             const isSpecialistA = pA.canPitch || pA.canCatch;
             const isSpecialistB = pB.canPitch || pB.canCatch;
             if (isSpecialistA !== isSpecialistB) return isSpecialistA ? 1 : -1;
 
-            // Tie-break with total played (prefer those who played more to sit)
             return sB.totalPlayed - sA.totalPlayed;
           });
 
-        for (let b = 0; b < numBench; b++) {
+        for (let b = 0; b < numBenchRemaining; b++) {
           const chosen = benchCandidates.find(p => !assignedThisInning.has(p.id));
           if (chosen) {
             assignedThisInning.add(chosen.id);
@@ -141,79 +186,73 @@ export function generateLineup(players: Player[], seed?: number): GameLineup {
         }
       });
 
-      // 2. Assign Catcher first (usually the most restricted position)
-      const catcherPos: Position = 'C';
-      const catcher = [...shuffledPlayers]
-        .filter(p => !assignedThisInning.has(p.id) && canPlayPosition(p.id, catcherPos))
-        .sort((a, b) => {
-          const sA = getStat(a.id);
-          const sB = getStat(b.id);
-          // Primary: least catching innings
-          if (sA.catching !== sB.catching) return sA.catching - sB.catching;
-          // Secondary: Balance - prefer those who have played more OUTFIELD relative to INFIELD
-          const balanceA = sA.outfield - sA.infield;
-          const balanceB = sB.outfield - sB.infield;
-          if (balanceA !== balanceB) return balanceB - balanceA;
-          // Tertiary: least total infield innings
-          if (sA.infield !== sB.infield) return sA.infield - sB.infield;
-          // Quaternary: least total played
-          return sA.totalPlayed - sB.totalPlayed;
-        })[0];
-      
-      if (catcher) {
-        inningAssignment.assignments.C = catcher.id;
-        assignedThisInning.add(catcher.id);
-        const s = getStat(catcher.id);
-        s.catching++;
-        s.infield++;
-        s.totalPlayed++;
-        s.positionCounts[catcherPos] = (s.positionCounts[catcherPos] || 0) + 1;
-        s.history.push(catcherPos);
-      } else if (anyCatchers && !isLastAttempt) {
-        // Only fail if there are catchers on the roster but we couldn't assign one
-        isValid = false;
-        break;
+      // 2. Assign Catcher
+      if (!inningAssignment.assignments.C && anyCatchers) {
+          const catcherPos: Position = 'C';
+          const catcher = [...shuffledPlayers]
+            .filter(p => !assignedThisInning.has(p.id) && canPlayPosition(p.id, catcherPos))
+            .sort((a, b) => {
+              const sA = getStat(a.id);
+              const sB = getStat(b.id);
+              if (sA.catching !== sB.catching) return sA.catching - sB.catching;
+              const balanceA = sA.outfield - sA.infield;
+              const balanceB = sB.outfield - sB.infield;
+              if (balanceA !== balanceB) return balanceB - balanceA;
+              if (sA.infield !== sB.infield) return sA.infield - sB.infield;
+              return sB.totalPlayed - sA.totalPlayed;
+            })[0];
+          
+          if (catcher) {
+            inningAssignment.assignments.C = catcher.id;
+            assignedThisInning.add(catcher.id);
+            const s = getStat(catcher.id);
+            s.catching++;
+            s.infield++;
+            s.totalPlayed++;
+            s.positionCounts[catcherPos] = (s.positionCounts[catcherPos] || 0) + 1;
+            s.history.push(catcherPos);
+          } else if (!isLastAttempt) {
+            isValid = false;
+            break;
+          }
       }
 
       // 3. Assign Pitcher
-      const pitcherPos: Position = 'P';
-      const pitcher = [...shuffledPlayers]
-        .filter(p => !assignedThisInning.has(p.id) && canPlayPosition(p.id, pitcherPos))
-        .sort((a, b) => {
-          const sA = getStat(a.id);
-          const sB = getStat(b.id);
-          // Primary: least pitching innings
-          if (sA.pitching !== sB.pitching) return sA.pitching - sB.pitching;
-          // Secondary: Balance - prefer those who have played more OUTFIELD relative to INFIELD
-          const balanceA = sA.outfield - sA.infield;
-          const balanceB = sB.outfield - sB.infield;
-          if (balanceA !== balanceB) return balanceB - balanceA;
-          // Tertiary: least total infield innings
-          if (sA.infield !== sB.infield) return sA.infield - sB.infield;
-          // Quaternary: least total played
-          return sA.totalPlayed - sB.totalPlayed;
-        })[0];
-      
-      if (pitcher) {
-        inningAssignment.assignments.P = pitcher.id;
-        assignedThisInning.add(pitcher.id);
-        const s = getStat(pitcher.id);
-        s.pitching++;
-        s.infield++;
-        s.totalPlayed++;
-        s.positionCounts[pitcherPos] = (s.positionCounts[pitcherPos] || 0) + 1;
-        s.history.push(pitcherPos);
-      } else if (anyPitchers && !isLastAttempt) {
-        // Only fail if there are pitchers on the roster but we couldn't assign one
-        isValid = false;
-        break;
+      if (!inningAssignment.assignments.P && anyPitchers) {
+          const pitcherPos: Position = 'P';
+          const pitcher = [...shuffledPlayers]
+            .filter(p => !assignedThisInning.has(p.id) && canPlayPosition(p.id, pitcherPos))
+            .sort((a, b) => {
+              const sA = getStat(a.id);
+              const sB = getStat(b.id);
+              if (sA.pitching !== sB.pitching) return sA.pitching - sB.pitching;
+              const balanceA = sA.outfield - sA.infield;
+              const balanceB = sB.outfield - sB.infield;
+              if (balanceA !== balanceB) return balanceB - balanceA;
+              if (sA.infield !== sB.infield) return sA.infield - sB.infield;
+              return sB.totalPlayed - sA.totalPlayed;
+            })[0];
+          
+          if (pitcher) {
+            inningAssignment.assignments.P = pitcher.id;
+            assignedThisInning.add(pitcher.id);
+            const s = getStat(pitcher.id);
+            s.pitching++;
+            s.infield++;
+            s.totalPlayed++;
+            s.positionCounts[pitcherPos] = (s.positionCounts[pitcherPos] || 0) + 1;
+            s.history.push(pitcherPos);
+          } else if (!isLastAttempt) {
+            isValid = false;
+            break;
+          }
       }
 
       // 4. Assign remaining positions
       const remainingPositions = shuffle(
         [...INFIELD_POSITIONS.filter(p => p !== 'P' && p !== 'C'), ...OUTFIELD_POSITIONS],
         createRandom(effectiveSeed + i + attempt)
-      );
+      ).filter(pos => !inningAssignment.assignments[pos]);
       
       for (const pos of remainingPositions) {
         const isInfield = INFIELD_POSITIONS.includes(pos);
@@ -222,22 +261,14 @@ export function generateLineup(players: Player[], seed?: number): GameLineup {
           .sort((a, b) => {
             const sA = getStat(a.id);
             const sB = getStat(b.id);
-
-            // Rule E/D: Balance Infield/Outfield
-            // Priority 1: Balance - prefer those who have played more of the OTHER type
             const balanceA = isInfield ? (sA.outfield - sA.infield) : (sA.infield - sA.outfield);
             const balanceB = isInfield ? (sB.outfield - sB.infield) : (sB.infield - sB.outfield);
-            
             if (balanceA !== balanceB) return balanceB - balanceA;
-
-            // Priority 2: Least of THIS type
             if (isInfield) {
               if (sA.infield !== sB.infield) return sA.infield - sB.infield;
             } else {
               if (sA.outfield !== sB.outfield) return sA.outfield - sB.outfield;
             }
-            
-            // Priority 3: Least total played
             return sA.totalPlayed - sB.totalPlayed;
           })[0];
 
@@ -263,6 +294,5 @@ export function generateLineup(players: Player[], seed?: number): GameLineup {
     if (isValid || isLastAttempt) return lineup;
   }
 
-  // Fallback if no valid lineup found after retries (should be rare)
   return []; 
 }

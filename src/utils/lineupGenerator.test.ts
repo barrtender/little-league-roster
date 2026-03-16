@@ -287,4 +287,59 @@ describe('generateLineup', () => {
       expect(Math.max(...outfieldCounts) - Math.min(...outfieldCounts)).toBeLessThanOrEqual(1);
     });
   });
+
+  describe('Locking Capability', () => {
+    it('preserves locked positions and generates a valid lineup around them', () => {
+      const player1 = players12[0];
+      const player2 = players12[1];
+      
+      const locks: GameLineup = [
+        {
+          inning: 1,
+          assignments: {
+            P: player1.id,
+            C: player2.id,
+            '1B': null, '2B': null, '3B': null, SS: null,
+            LF: null, LC: null, RC: null, RF: null, Bench: null
+          },
+          lockedPositions: ['P', 'C']
+        },
+        {
+          inning: 3,
+          assignments: {
+            P: null, C: null, '1B': player1.id, '2B': null, '3B': null, SS: null,
+            LF: null, LC: null, RC: null, RF: null, Bench: null
+          },
+          lockedPositions: ['1B']
+        }
+      ];
+
+      const lineup = generateLineup(players12, TEST_SEED, locks);
+      
+      // Inning 1 check
+      expect(lineup[0].assignments.P).toBe(player1.id);
+      expect(lineup[0].assignments.C).toBe(player2.id);
+      
+      // Inning 3 check
+      expect(lineup[2].assignments['1B']).toBe(player1.id);
+      
+      // Verify other positions are still filled (10 positions total)
+      lineup.forEach(inning => {
+        const assigned = Object.values(inning.assignments).filter(id => id !== null);
+        expect(assigned).toHaveLength(10);
+      });
+
+      // Verify stats for player1 (should have at least 2 infield innings from locks)
+      let player1Infield = 0;
+      lineup.forEach(inning => {
+        const INFIELD = ['P', 'C', '1B', '2B', '3B', 'SS'];
+        Object.entries(inning.assignments).forEach(([pos, id]) => {
+          if (id === player1.id && INFIELD.includes(pos)) {
+            player1Infield++;
+          }
+        });
+      });
+      expect(player1Infield).toBeGreaterThanOrEqual(2);
+    });
+  });
 });

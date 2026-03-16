@@ -70,7 +70,8 @@ export default function App() {
   };
 
   const handleRegenerate = () => {
-    const newLineup = generateLineup(players);
+    if (!lineup) return;
+    const newLineup = generateLineup(players, undefined, lineup);
     setLineup(newLineup);
   };
 

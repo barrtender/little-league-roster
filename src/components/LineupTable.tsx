@@ -5,7 +5,7 @@ import { ALL_PLAYING_POSITIONS, POSITION_LABELS, INFIELD_POSITIONS } from '../co
 import { motion } from 'motion/react';
 import { PlayerSummary } from './PlayerSummary';
 
-import { Share2, Printer, Check, ArrowDownToLine, UserPlus2 } from 'lucide-react';
+import { Share2, Printer, Check, ArrowDownToLine, UserPlus2, Lock, Unlock } from 'lucide-react';
 import { useState } from 'react';
 
 interface LineupTableProps {
@@ -30,15 +30,36 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const toggleLock = (inningIndex: number, pos: Position) => {
+    const newLineup = [...lineup];
+    const inning = { ...newLineup[inningIndex] };
+    const lockedPositions = [...(inning.lockedPositions || [])];
+    
+    if (lockedPositions.includes(pos)) {
+      inning.lockedPositions = lockedPositions.filter(p => p !== pos);
+    } else {
+      inning.lockedPositions = [...lockedPositions, pos];
+    }
+    
+    newLineup[inningIndex] = inning;
+    onUpdateLineup(newLineup);
+  };
+
   const moveToBench = (inningIndex: number, pos: Position) => {
     const newLineup = [...lineup];
-    newLineup[inningIndex] = {
-      ...newLineup[inningIndex],
-      assignments: {
-        ...newLineup[inningIndex].assignments,
-        [pos]: null
-      }
+    const inning = { ...newLineup[inningIndex] };
+    
+    // Remove from locked if it was locked
+    if (inning.lockedPositions) {
+      inning.lockedPositions = inning.lockedPositions.filter(p => p !== pos);
+    }
+    
+    inning.assignments = {
+      ...inning.assignments,
+      [pos]: null
     };
+    
+    newLineup[inningIndex] = inning;
     onUpdateLineup(newLineup);
   };
 
@@ -46,13 +67,14 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
     if (!selectedBenchPlayer || selectedBenchPlayer.inningIndex !== inningIndex) return;
     
     const newLineup = [...lineup];
-    newLineup[inningIndex] = {
-      ...newLineup[inningIndex],
-      assignments: {
-        ...newLineup[inningIndex].assignments,
-        [pos]: selectedBenchPlayer.playerId
-      }
+    const inning = { ...newLineup[inningIndex] };
+    
+    inning.assignments = {
+      ...inning.assignments,
+      [pos]: selectedBenchPlayer.playerId
     };
+    
+    newLineup[inningIndex] = inning;
     onUpdateLineup(newLineup);
     setSelectedBenchPlayer(null);
   };
@@ -123,15 +145,27 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                   const playerId = inning.assignments[pos];
                   const playerName = getPlayerName(playerId);
                   const isAvailableForAssignment = !playerId && selectedBenchPlayer?.inningIndex === idx;
+                  const isLocked = inning.lockedPositions?.includes(pos);
 
                   return (
                     <td key={idx} className="py-3 px-4 text-center relative group/cell">
                       {playerName ? (
                         <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => toggleLock(idx, pos)}
+                            className={`no-print p-1 rounded transition-all ${
+                              isLocked 
+                                ? 'text-amber-600 bg-amber-50 opacity-100' 
+                                : 'text-zinc-300 opacity-0 group-hover/cell:opacity-100 hover:text-zinc-500 hover:bg-zinc-100'
+                            }`}
+                            title={isLocked ? "Unlock Position" : "Lock Position"}
+                          >
+                            {isLocked ? <Lock size={12} /> : <Unlock size={12} />}
+                          </button>
                           <motion.span 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className={`text-sm font-medium ${INFIELD_POSITIONS.includes(pos) ? 'text-emerald-700' : 'text-blue-700'}`}
+                            className={`text-sm font-medium ${isLocked ? 'underline decoration-amber-200 underline-offset-4' : ''} ${INFIELD_POSITIONS.includes(pos) ? 'text-emerald-700' : 'text-blue-700'}`}
                           >
                             {playerName}
                           </motion.span>

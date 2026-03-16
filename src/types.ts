@@ -14,6 +14,7 @@ export interface Player {
 export interface InningAssignment {
   inning: number;
   assignments: Record<Position, string | null>; // Position to Player ID
+  lockedPositions?: Position[];
 }
 
 export type GameLineup = InningAssignment[];
