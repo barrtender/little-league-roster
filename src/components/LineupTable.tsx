@@ -2,10 +2,10 @@
 import React from 'react';
 import { GameLineup, Player, Position } from '../types';
 import { ALL_PLAYING_POSITIONS, POSITION_LABELS, INFIELD_POSITIONS } from '../constants';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { PlayerSummary } from './PlayerSummary';
 
-import { Share2, Printer, Check, ArrowDownToLine, UserPlus2, Lock, Unlock } from 'lucide-react';
+import { Share2, Printer, Check, ArrowDownToLine, UserPlus2, Lock, Unlock, ArrowLeftRight, X as CloseIcon } from 'lucide-react';
 import { useState } from 'react';
 
 interface LineupTableProps {
@@ -17,6 +17,7 @@ interface LineupTableProps {
 export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpdateLineup }) => {
   const [copied, setCopied] = useState(false);
   const [selectedBenchPlayer, setSelectedBenchPlayer] = useState<{ inningIndex: number, playerId: string } | null>(null);
+  const [selectedCell, setSelectedCell] = useState<{ inningIndex: number, pos: Position } | null>(null);
 
   const handlePrint = () => {
     window.print();
@@ -43,13 +44,13 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
     
     newLineup[inningIndex] = inning;
     onUpdateLineup(newLineup);
+    setSelectedCell(null);
   };
 
   const moveToBench = (inningIndex: number, pos: Position) => {
     const newLineup = [...lineup];
     const inning = { ...newLineup[inningIndex] };
     
-    // Remove from locked if it was locked
     if (inning.lockedPositions) {
       inning.lockedPositions = inning.lockedPositions.filter(p => p !== pos);
     }
@@ -61,6 +62,34 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
     
     newLineup[inningIndex] = inning;
     onUpdateLineup(newLineup);
+    setSelectedCell(null);
+  };
+
+  const swapOrMovePlayers = (inningIndex: number, fromPos: Position, toPos: Position) => {
+    const newLineup = [...lineup];
+    const inning = { ...newLineup[inningIndex] };
+    const assignments = { ...inning.assignments };
+    
+    const temp = assignments[fromPos];
+    assignments[fromPos] = assignments[toPos];
+    assignments[toPos] = temp;
+    
+    inning.assignments = assignments;
+    
+    // If we move to an empty spot, we might want to move the lock too if it was locked
+    if (inning.lockedPositions) {
+      const fromLocked = inning.lockedPositions.includes(fromPos);
+      const toLocked = inning.lockedPositions.includes(toPos);
+      
+      let newLocked = inning.lockedPositions.filter(p => p !== fromPos && p !== toPos);
+      if (fromLocked) newLocked.push(toPos);
+      if (toLocked) newLocked.push(fromPos);
+      inning.lockedPositions = newLocked;
+    }
+    
+    newLineup[inningIndex] = inning;
+    onUpdateLineup(newLineup);
+    setSelectedCell(null);
   };
 
   const assignFromBench = (inningIndex: number, pos: Position) => {
@@ -92,33 +121,64 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
   return (
     <div className="space-y-8">
       <div className="w-full overflow-x-auto bg-white rounded-2xl shadow-sm border border-black/5 p-6 relative">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-semibold text-zinc-900">Game Lineup</h2>
-          <div className="flex items-center gap-2 no-print">
-            {selectedBenchPlayer && (
-              <div className="mr-4 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg text-xs font-medium text-amber-700 animate-pulse">
-                Select a position for {players.find(p => p.id === selectedBenchPlayer.playerId)?.name}
-              </div>
-            )}
-            <button
-              onClick={handleShare}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                copied 
-                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
-                  : 'bg-zinc-50 text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
-              }`}
-            >
-              {copied ? <Check size={16} /> : <Share2 size={16} />}
-              {copied ? 'Copied Link' : 'Share'}
-            </button>
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-3 py-1.5 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 border border-zinc-200 rounded-lg text-sm font-medium transition-all"
-            >
-              <Printer size={16} />
-              Print
-            </button>
+        <div className="mb-6 no-print">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <h2 className="text-2xl font-semibold text-zinc-900">Game Lineup</h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleShare}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  copied 
+                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                    : 'bg-zinc-50 text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
+                }`}
+              >
+                {copied ? <Check size={16} /> : <Share2 size={16} />}
+                {copied ? 'Copied Link' : 'Share'}
+              </button>
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-3 py-1.5 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 border border-zinc-200 rounded-lg text-sm font-medium transition-all"
+              >
+                <Printer size={16} />
+                Print
+              </button>
+            </div>
           </div>
+
+          <div className="min-h-[40px] flex items-center">
+            <AnimatePresence>
+              {(selectedBenchPlayer || selectedCell) && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="w-full px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl text-xs sm:text-sm font-medium text-amber-700 shadow-sm flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-2 animate-pulse">
+                    <div className="w-2 h-2 bg-amber-400 rounded-full" />
+                    <span>
+                      {selectedBenchPlayer ? (
+                        <>Select a position for <span className="font-bold">{players.find(p => p.id === selectedBenchPlayer.playerId)?.name}</span></>
+                      ) : (
+                        <>Select a position to swap/move <span className="font-bold">{players.find(p => p.id === lineup[selectedCell!.inningIndex].assignments[selectedCell!.pos])?.name}</span></>
+                      )}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={() => { setSelectedBenchPlayer(null); setSelectedCell(null); }} 
+                    className="p-1.5 hover:bg-amber-100 rounded-lg transition-colors shrink-0"
+                  >
+                    <CloseIcon size={16} />
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+        
+        <div className="print:block hidden mb-6">
+          <h2 className="text-2xl font-semibold text-zinc-900">Game Lineup</h2>
         </div>
         
         <table className="w-full border-collapse">
@@ -144,50 +204,81 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                 {lineup.map((inning, idx) => {
                   const playerId = inning.assignments[pos];
                   const playerName = getPlayerName(playerId);
-                  const isAvailableForAssignment = !playerId && selectedBenchPlayer?.inningIndex === idx;
+                  const isAvailableForAssignment = !playerId && (selectedBenchPlayer?.inningIndex === idx || selectedCell?.inningIndex === idx);
                   const isLocked = inning.lockedPositions?.includes(pos);
+                  const isSelected = selectedCell?.inningIndex === idx && selectedCell?.pos === pos;
+
+                  const handleCellClick = () => {
+                    if (playerId) {
+                      if (selectedCell && selectedCell.inningIndex === idx) {
+                        if (selectedCell.pos === pos) {
+                          setSelectedCell(null);
+                        } else {
+                          swapOrMovePlayers(idx, selectedCell.pos, pos);
+                        }
+                      } else {
+                        setSelectedCell({ inningIndex: idx, pos });
+                        setSelectedBenchPlayer(null);
+                      }
+                    } else if (isAvailableForAssignment) {
+                      if (selectedBenchPlayer) {
+                        assignFromBench(idx, pos);
+                      } else if (selectedCell) {
+                        swapOrMovePlayers(idx, selectedCell.pos, pos);
+                      }
+                    }
+                  };
 
                   return (
-                    <td key={idx} className="py-3 px-4 text-center relative group/cell">
-                      {playerName ? (
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => toggleLock(idx, pos)}
-                            className={`no-print p-1 rounded transition-all ${
-                              isLocked 
-                                ? 'text-amber-600 bg-amber-50 opacity-100' 
-                                : 'text-zinc-300 opacity-0 group-hover/cell:opacity-100 hover:text-zinc-500 hover:bg-zinc-100'
-                            }`}
-                            title={isLocked ? "Unlock Position" : "Lock Position"}
-                          >
-                            {isLocked ? <Lock size={12} /> : <Unlock size={12} />}
-                          </button>
-                          <motion.span 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className={`text-sm font-medium ${isLocked ? 'underline decoration-amber-200 underline-offset-4' : ''} ${INFIELD_POSITIONS.includes(pos) ? 'text-emerald-700' : 'text-blue-700'}`}
-                          >
-                            {playerName}
-                          </motion.span>
-                          <button
-                            onClick={() => moveToBench(idx, pos)}
-                            className="no-print opacity-0 group-hover/cell:opacity-100 p-1 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-all"
-                            title="Move to Bench"
-                          >
-                            <ArrowDownToLine size={12} />
-                          </button>
-                        </div>
-                      ) : isAvailableForAssignment ? (
-                        <button
-                          onClick={() => assignFromBench(idx, pos)}
-                          className="no-print mx-auto flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-all border border-emerald-200 shadow-sm"
-                          title={`Assign ${players.find(p => p.id === selectedBenchPlayer?.playerId)?.name}`}
-                        >
-                          <UserPlus2 size={14} />
-                        </button>
-                      ) : (
-                        <span className="text-sm text-zinc-300">-</span>
-                      )}
+                    <td key={idx} className="p-0 text-center relative border-r border-zinc-100 last:border-r-0">
+                      <div 
+                        onClick={handleCellClick}
+                        className={`w-full h-full min-h-[60px] flex flex-col items-center justify-center p-2 cursor-pointer transition-all ${
+                          isSelected ? 'bg-amber-50 ring-2 ring-inset ring-amber-400 z-10' : 
+                          isAvailableForAssignment ? 'bg-emerald-50 hover:bg-emerald-100' : 
+                          'hover:bg-zinc-50'
+                        }`}
+                      >
+                        {playerName ? (
+                          <>
+                            <div className="flex items-center justify-center gap-1 mb-1">
+                              {isLocked && <Lock size={10} className="text-amber-600" />}
+                              <motion.span 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className={`text-sm font-medium leading-tight ${isLocked ? 'text-amber-700' : INFIELD_POSITIONS.includes(pos) ? 'text-emerald-700' : 'text-blue-700'}`}
+                              >
+                                {playerName}
+                              </motion.span>
+                            </div>
+                            
+                            {isSelected && (
+                              <div className="flex items-center gap-1 no-print mt-1">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); toggleLock(idx, pos); }}
+                                  className={`p-1.5 rounded-md transition-all ${isLocked ? 'bg-amber-100 text-amber-700' : 'bg-white text-zinc-400 border border-zinc-200'}`}
+                                  title={isLocked ? "Unlock" : "Lock"}
+                                >
+                                  {isLocked ? <Lock size={14} /> : <Unlock size={14} />}
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); moveToBench(idx, pos); }}
+                                  className="p-1.5 bg-white text-zinc-400 border border-zinc-200 rounded-md hover:text-amber-600 hover:bg-amber-50 transition-all"
+                                  title="Bench"
+                                >
+                                  <ArrowDownToLine size={14} />
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        ) : isAvailableForAssignment ? (
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
+                            <UserPlus2 size={14} />
+                          </div>
+                        ) : (
+                          <span className="text-sm text-zinc-300">-</span>
+                        )}
+                      </div>
                     </td>
                   );
                 })}
@@ -199,11 +290,18 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                 <td key={idx} className="py-4 px-4 text-center align-top">
                   <div className="flex flex-col gap-1.5">
                     {getBenchPlayers(idx).map(p => {
-                      const isSelected = selectedBenchPlayer?.inningIndex === idx && selectedBenchPlayer?.playerId === p.id;
+                      const isSelected = (selectedBenchPlayer?.inningIndex === idx && selectedBenchPlayer?.playerId === p.id);
                       return (
                         <button
                           key={p.id}
-                          onClick={() => setSelectedBenchPlayer(isSelected ? null : { inningIndex: idx, playerId: p.id })}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedBenchPlayer(null);
+                            } else {
+                              setSelectedBenchPlayer({ inningIndex: idx, playerId: p.id });
+                              setSelectedCell(null);
+                            }
+                          }}
                           className={`no-print text-xs font-medium px-2 py-1 rounded-md transition-all border ${
                             isSelected 
                               ? 'bg-amber-100 text-amber-800 border-amber-300 shadow-sm scale-105' 

@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateLineup } from './lineupGenerator';
 import { getSampleRoster } from './sampleData';
-import { Player, Position } from '../types';
+import { Player, Position, GameLineup } from '../types';
 
 const TEST_SEED = 12345;
 
