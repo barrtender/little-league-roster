@@ -165,7 +165,7 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                       {selectedBenchPlayer ? (
                         <>Select a position for <span className="font-bold">{players.find(p => p.id === selectedBenchPlayer.playerId)?.name}</span></>
                       ) : (
-                        <>Select a position to swap/move <span className="font-bold">{players.find(p => p.id === lineup[selectedCell!.inningIndex].assignments[selectedCell!.pos])?.name}</span></>
+                        <>Select a position or bench player to swap/move <span className="font-bold">{players.find(p => p.id === lineup[selectedCell!.inningIndex].assignments[selectedCell!.pos])?.name}</span></>
                       )}
                     </span>
                   </div>
@@ -213,23 +213,20 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                   const isSelected = selectedCell?.inningIndex === idx && selectedCell?.pos === pos;
 
                   const handleCellClick = () => {
-                    if (playerId) {
-                      if (selectedCell && selectedCell.inningIndex === idx) {
-                        if (selectedCell.pos === pos) {
-                          setSelectedCell(null);
-                        } else {
-                          swapOrMovePlayers(idx, selectedCell.pos, pos);
-                        }
+                    if (selectedBenchPlayer && selectedBenchPlayer.inningIndex === idx) {
+                      // If a bench player is selected, assign them to this position (swapping if occupied)
+                      assignFromBench(idx, pos);
+                    } else if (selectedCell && selectedCell.inningIndex === idx) {
+                      // If a field position is selected, swap/move to this position
+                      if (selectedCell.pos === pos) {
+                        setSelectedCell(null);
                       } else {
-                        setSelectedCell({ inningIndex: idx, pos });
-                        setSelectedBenchPlayer(null);
-                      }
-                    } else if (isAvailableForAssignment) {
-                      if (selectedBenchPlayer) {
-                        assignFromBench(idx, pos);
-                      } else if (selectedCell) {
                         swapOrMovePlayers(idx, selectedCell.pos, pos);
                       }
+                    } else if (playerId) {
+                      // No selection yet, select this occupied position
+                      setSelectedCell({ inningIndex: idx, pos });
+                      setSelectedBenchPlayer(null);
                     }
                   };
 
@@ -301,6 +298,21 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                           onClick={() => {
                             if (isSelected) {
                               setSelectedBenchPlayer(null);
+                            } else if (selectedCell && selectedCell.inningIndex === idx) {
+                              // One-click swap: Move selected defensive player to bench, 
+                              // and move this bench player to that position
+                              const pos = selectedCell.pos;
+                              const newLineup = [...lineup];
+                              const inning = { ...newLineup[idx] };
+                              
+                              inning.assignments = {
+                                ...inning.assignments,
+                                [pos]: p.id
+                              };
+                              
+                              newLineup[idx] = inning;
+                              onUpdateLineup(newLineup);
+                              setSelectedCell(null);
                             } else {
                               setSelectedBenchPlayer({ inningIndex: idx, playerId: p.id });
                               setSelectedCell(null);
