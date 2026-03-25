@@ -27,7 +27,7 @@ describe('generateLineup', () => {
     expect(lineup1).not.toEqual(lineup2);
   });
 
-  it('assigns 10 players to positions each inning', () => {
+  it('assigns 10 players to positions each inning by default', () => {
     const lineup = generateLineup(players12, TEST_SEED);
     lineup.forEach(inning => {
       const assigned = Object.values(inning.assignments).filter(id => id !== null);
@@ -288,6 +288,57 @@ describe('generateLineup', () => {
     });
   });
 
+  describe('3-Outfielder Configuration', () => {
+    const players11 = getSampleRoster({ playerCount: 11 }); // 6 infield + 3 outfield = 9 positions, 2 sit per inning
+
+    it('assigns 9 players to positions each inning', () => {
+      const lineup = generateLineup(players11, TEST_SEED, undefined, 3);
+      lineup.forEach(inning => {
+        const assigned = Object.values(inning.assignments).filter(id => id !== null);
+        // P, C, 1B, 2B, 3B, SS, LF, CF, RF = 9 positions
+        expect(assigned).toHaveLength(9);
+      });
+    });
+
+    it('satisfies Rule D (Infield/Outfield balance) with 3 outfielders', () => {
+      const lineup = generateLineup(players11, TEST_SEED, undefined, 3);
+      const INFIELD = ['P', 'C', '1B', '2B', '3B', 'SS'];
+      const OUTFIELD = ['LF', 'CF', 'RF'];
+
+      players11.forEach(player => {
+        let totalPlayed = 0;
+        let infieldCount = 0;
+        let outfieldCount = 0;
+
+        lineup.forEach(inning => {
+          Object.entries(inning.assignments).forEach(([pos, id]) => {
+            if (id === player.id) {
+              totalPlayed++;
+              if (INFIELD.includes(pos)) infieldCount++;
+              if (OUTFIELD.includes(pos)) outfieldCount++;
+            }
+          });
+        });
+
+        if (totalPlayed >= 4) {
+          expect(infieldCount).toBeGreaterThanOrEqual(1);
+          expect(outfieldCount).toBeGreaterThanOrEqual(1);
+        }
+      });
+    });
+
+    it('balances total innings played within 1 inning difference with 3 outfielders', () => {
+      const lineup = generateLineup(players11, TEST_SEED, undefined, 3);
+      const playCounts = players11.map(player => {
+        return lineup.filter(inning => Object.values(inning.assignments).includes(player.id)).length;
+      });
+      
+      const max = Math.max(...playCounts);
+      const min = Math.min(...playCounts);
+      expect(max - min).toBeLessThanOrEqual(1);
+    });
+  });
+
   describe('Locking Capability', () => {
     it('preserves locked positions and generates a valid lineup around them', () => {
       const player1 = players12[0];
@@ -300,7 +351,7 @@ describe('generateLineup', () => {
             P: player1.id,
             C: player2.id,
             '1B': null, '2B': null, '3B': null, SS: null,
-            LF: null, LC: null, RC: null, RF: null, Bench: null
+            LF: null, LC: null, RC: null, RF: null, CF: null, Bench: null
           },
           lockedPositions: ['P', 'C']
         },
@@ -308,7 +359,7 @@ describe('generateLineup', () => {
           inning: 3,
           assignments: {
             P: null, C: null, '1B': player1.id, '2B': null, '3B': null, SS: null,
-            LF: null, LC: null, RC: null, RF: null, Bench: null
+            LF: null, LC: null, RC: null, RF: null, CF: null, Bench: null
           },
           lockedPositions: ['1B']
         }

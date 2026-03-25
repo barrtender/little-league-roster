@@ -2,8 +2,17 @@
 import { Position } from './types';
 
 export const INFIELD_POSITIONS: Position[] = ['P', 'C', '1B', '2B', '3B', 'SS'];
-export const OUTFIELD_POSITIONS: Position[] = ['LF', 'LC', 'RC', 'RF'];
-export const ALL_PLAYING_POSITIONS: Position[] = [...INFIELD_POSITIONS, ...OUTFIELD_POSITIONS];
+
+export const OUTFIELD_POSITIONS_4: Position[] = ['LF', 'LC', 'RC', 'RF'];
+export const OUTFIELD_POSITIONS_3: Position[] = ['LF', 'CF', 'RF'];
+
+export const getOutfieldPositions = (count: number): Position[] => {
+  return count === 3 ? OUTFIELD_POSITIONS_3 : OUTFIELD_POSITIONS_4;
+};
+
+export const getAllPlayingPositions = (outfieldCount: number): Position[] => {
+  return [...INFIELD_POSITIONS, ...getOutfieldPositions(outfieldCount)];
+};
 
 export const POSITION_LABELS: Record<Position, string> = {
   P: 'Pitcher',
@@ -16,5 +25,6 @@ export const POSITION_LABELS: Record<Position, string> = {
   LC: 'Left Center',
   RC: 'Right Center',
   RF: 'Right Field',
+  CF: 'Center Field',
   Bench: 'Bench'
 };

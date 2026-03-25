@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { GameLineup, Player } from '../types';
-import { INFIELD_POSITIONS, OUTFIELD_POSITIONS } from '../constants';
+import { INFIELD_POSITIONS } from '../constants';
 import { motion } from 'motion/react';
 
 interface PlayerSummaryProps {
@@ -26,8 +26,11 @@ export const PlayerSummary: React.FC<PlayerSummaryProps> = ({ lineup, players })
           assigned = true;
           if (pos === 'P') pitcher++;
           if (pos === 'C') catcher++;
-          if (INFIELD_POSITIONS.includes(pos as any)) infield++;
-          if (OUTFIELD_POSITIONS.includes(pos as any)) outfield++;
+          if (INFIELD_POSITIONS.includes(pos as any)) {
+            infield++;
+          } else if (pos !== 'Bench') {
+            outfield++;
+          }
         }
       });
       if (!assigned) bench++;

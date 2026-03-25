@@ -1,6 +1,6 @@
 
 import { Player, GameLineup, Position, InningAssignment } from '../types';
-import { INFIELD_POSITIONS, OUTFIELD_POSITIONS } from '../constants';
+import { INFIELD_POSITIONS, getOutfieldPositions } from '../constants';
 
 // Simple seeded random generator (Mulberry32)
 function createRandom(seed: number) {
@@ -22,8 +22,9 @@ function shuffle<T>(array: T[], random: () => number): T[] {
   return shuffled;
 }
 
-export function generateLineup(players: Player[], seed?: number, locks?: GameLineup): GameLineup {
+export function generateLineup(players: Player[], seed?: number, locks?: GameLineup, outfieldCount: number = 4): GameLineup {
   const numInnings = 6;
+  const outfieldPositions = getOutfieldPositions(outfieldCount);
   
   // Use provided seed or a random one
   let effectiveSeed = seed ?? Math.floor(Math.random() * 1000000);
@@ -60,7 +61,7 @@ export function generateLineup(players: Player[], seed?: number, locks?: GameLin
         inning: i,
         assignments: {
           P: null, C: null, '1B': null, '2B': null, '3B': null, SS: null,
-          LF: null, LC: null, RC: null, RF: null, Bench: null
+          LF: null, LC: null, RC: null, RF: null, CF: null, Bench: null
         }
       };
 
@@ -106,7 +107,7 @@ export function generateLineup(players: Player[], seed?: number, locks?: GameLin
       }
 
       const fairInfield = Math.ceil((numInnings * 6) / shuffledPlayers.length);
-      const fairOutfield = Math.ceil((numInnings * 4) / shuffledPlayers.length);
+      const fairOutfield = Math.ceil((numInnings * outfieldCount) / shuffledPlayers.length);
 
       // Helper to check if a player can play a position this inning
       const canPlayPosition = (playerId: string, pos: Position) => {
@@ -132,8 +133,10 @@ export function generateLineup(players: Player[], seed?: number, locks?: GameLin
       };
 
       // 1. Assign Bench first to satisfy bench rules
-      const activePositionsCount = (anyPitchers ? 1 : 0) + (anyCatchers ? 1 : 0) + 8;
-      const totalBenchNeeded = Math.max(0, shuffledPlayers.length - activePositionsCount);
+      const activePositionsCount = (anyPitchers ? 1 : 0) + (anyCatchers ? 1 : 0) + (4 + (outfieldCount - 4)); // 6 infield - 2 (P/C) + outfieldCount
+      // Actually simpler:
+      const totalActivePositions = 6 + outfieldCount;
+      const totalBenchNeeded = Math.max(0, shuffledPlayers.length - totalActivePositions);
       
       // Count how many are already assigned to bench via locks
       const alreadyOnBenchCount = Array.from(assignedThisInning).filter(id => {
@@ -250,7 +253,7 @@ export function generateLineup(players: Player[], seed?: number, locks?: GameLin
 
       // 4. Assign remaining positions
       const remainingPositions = shuffle(
-        [...INFIELD_POSITIONS.filter(p => p !== 'P' && p !== 'C'), ...OUTFIELD_POSITIONS],
+        [...INFIELD_POSITIONS.filter(p => p !== 'P' && p !== 'C'), ...outfieldPositions],
         createRandom(effectiveSeed + i + attempt)
       ).filter(pos => !inningAssignment.assignments[pos]);
       

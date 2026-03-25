@@ -11,6 +11,7 @@ export default function App() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [lineup, setLineup] = useState<GameLineup | null>(null);
   const [view, setView] = useState<'input' | 'output'>('input');
+  const [outfieldCount, setOutfieldCount] = useState<3 | 4>(4);
 
   // Load from local storage or URL on mount
   useEffect(() => {
@@ -21,6 +22,7 @@ export default function App() {
       try {
         const decoded = JSON.parse(decodeURIComponent(escape(atob(sharedData))));
         if (decoded.players) setPlayers(decoded.players);
+        if (decoded.outfieldCount) setOutfieldCount(decoded.outfieldCount);
         if (decoded.lineup) {
           setLineup(decoded.lineup);
           setView('output');
@@ -34,7 +36,9 @@ export default function App() {
       const saved = localStorage.getItem('baseball-roster');
       if (saved) {
         try {
-          setPlayers(JSON.parse(saved));
+          const parsed = JSON.parse(saved);
+          setPlayers(parsed.players || []);
+          setOutfieldCount(parsed.outfieldCount || 4);
         } catch (e) {
           console.error('Failed to load roster', e);
         }
@@ -42,10 +46,10 @@ export default function App() {
     }
   }, []);
 
-  // Save to local storage when players change
+  // Save to local storage when players or config change
   useEffect(() => {
-    localStorage.setItem('baseball-roster', JSON.stringify(players));
-  }, [players]);
+    localStorage.setItem('baseball-roster', JSON.stringify({ players, outfieldCount }));
+  }, [players, outfieldCount]);
 
   const handleAddPlayer = (player: Player) => {
     setPlayers([...players, player]);
@@ -60,23 +64,52 @@ export default function App() {
   };
 
   const handleGenerate = () => {
-    if (players.length < 10) {
-      alert('You need at least 10 players to generate a full lineup.');
+    if (players.length < (6 + outfieldCount + 1)) {
+      alert(`You need at least ${6 + outfieldCount + 1} players to generate a full lineup.`);
       return;
     }
-    const newLineup = generateLineup(players);
+    const newLineup = generateLineup(players, undefined, undefined, outfieldCount);
     setLineup(newLineup);
     setView('output');
   };
 
   const handleRegenerate = () => {
     if (!lineup) return;
-    const newLineup = generateLineup(players, undefined, lineup);
+    const newLineup = generateLineup(players, undefined, lineup, outfieldCount);
     setLineup(newLineup);
   };
 
   const handleUpdateLineup = (newLineup: GameLineup) => {
     setLineup(newLineup);
+  };
+
+  const handleOutfieldCountChange = (newCount: 3 | 4) => {
+    setOutfieldCount(newCount);
+    
+    if (lineup) {
+      const newLineup = lineup.map(inning => {
+        const newAssignments = { ...inning.assignments };
+        let newLockedPositions = inning.lockedPositions ? [...inning.lockedPositions] : [];
+        
+        if (newCount === 3) {
+          // Moving from 4 to 3: Clear LC and RC
+          newAssignments.LC = null;
+          newAssignments.RC = null;
+          newLockedPositions = newLockedPositions.filter(p => p !== 'LC' && p !== 'RC');
+        } else {
+          // Moving from 3 to 4: Clear CF
+          newAssignments.CF = null;
+          newLockedPositions = newLockedPositions.filter(p => p !== 'CF');
+        }
+        
+        return {
+          ...inning,
+          assignments: newAssignments,
+          lockedPositions: newLockedPositions
+        };
+      });
+      setLineup(newLineup);
+    }
   };
 
   const handleLoadSample = () => {
@@ -149,6 +182,33 @@ export default function App() {
                   Add your players and specify who can pitch or catch. We'll handle the rotation logic.
                 </p>
               </div>
+
+              <div className="mb-8 flex flex-col items-center gap-3">
+                <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Outfield Configuration</span>
+                <div className="flex items-center bg-zinc-100 rounded-xl p-1 border border-zinc-200 shadow-sm">
+                  <button
+                    onClick={() => handleOutfieldCountChange(3)}
+                    className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${
+                      outfieldCount === 3 
+                        ? 'bg-white text-emerald-700 shadow-md' 
+                        : 'text-zinc-500 hover:text-zinc-700'
+                    }`}
+                  >
+                    3 Outfielders
+                  </button>
+                  <button
+                    onClick={() => handleOutfieldCountChange(4)}
+                    className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${
+                      outfieldCount === 4 
+                        ? 'bg-white text-emerald-700 shadow-md' 
+                        : 'text-zinc-500 hover:text-zinc-700'
+                    }`}
+                  >
+                    4 Outfielders
+                  </button>
+                </div>
+              </div>
+
               <PlayerInput
                 players={players}
                 onAddPlayer={handleAddPlayer}
@@ -165,10 +225,38 @@ export default function App() {
               transition={{ duration: 0.3 }}
             >
               {lineup && (
+                <div className="mb-8 flex flex-col items-center gap-3 no-print">
+                  <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Outfield Configuration</span>
+                  <div className="flex items-center bg-zinc-100 rounded-xl p-1 border border-zinc-200 shadow-sm">
+                    <button
+                      onClick={() => handleOutfieldCountChange(3)}
+                      className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${
+                        outfieldCount === 3 
+                          ? 'bg-white text-emerald-700 shadow-md' 
+                          : 'text-zinc-500 hover:text-zinc-700'
+                      }`}
+                    >
+                      3 Outfielders
+                    </button>
+                    <button
+                      onClick={() => handleOutfieldCountChange(4)}
+                      className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${
+                        outfieldCount === 4 
+                          ? 'bg-white text-emerald-700 shadow-md' 
+                          : 'text-zinc-500 hover:text-zinc-700'
+                      }`}
+                    >
+                      4 Outfielders
+                    </button>
+                  </div>
+                </div>
+              )}
+              {lineup && (
                 <LineupTable 
                   lineup={lineup} 
                   players={players} 
                   onUpdateLineup={handleUpdateLineup} 
+                  outfieldCount={outfieldCount}
                 />
               )}
             </motion.div>

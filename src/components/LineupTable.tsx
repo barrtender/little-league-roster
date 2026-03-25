@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { GameLineup, Player, Position } from '../types';
-import { ALL_PLAYING_POSITIONS, POSITION_LABELS, INFIELD_POSITIONS } from '../constants';
+import { getAllPlayingPositions, POSITION_LABELS, INFIELD_POSITIONS, getOutfieldPositions } from '../constants';
 import { motion, AnimatePresence } from 'motion/react';
 import { PlayerSummary } from './PlayerSummary';
 
@@ -12,12 +12,16 @@ interface LineupTableProps {
   lineup: GameLineup;
   players: Player[];
   onUpdateLineup: (lineup: GameLineup) => void;
+  outfieldCount?: 3 | 4;
 }
 
-export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpdateLineup }) => {
+export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpdateLineup, outfieldCount = 4 }) => {
   const [copied, setCopied] = useState(false);
   const [selectedBenchPlayer, setSelectedBenchPlayer] = useState<{ inningIndex: number, playerId: string } | null>(null);
   const [selectedCell, setSelectedCell] = useState<{ inningIndex: number, pos: Position } | null>(null);
+
+  const playingPositions = getAllPlayingPositions(outfieldCount);
+  const outfieldPositions = getOutfieldPositions(outfieldCount);
 
   const handlePrint = () => {
     window.print();
@@ -193,7 +197,7 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
             </tr>
           </thead>
           <tbody>
-            {ALL_PLAYING_POSITIONS.map((pos) => (
+            {playingPositions.map((pos) => (
               <tr key={pos} className="border-b border-zinc-100 hover:bg-zinc-50 transition-colors group">
                 <td className="py-3 px-4">
                   <div className="flex flex-col">
@@ -327,7 +331,7 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
           </div>
           <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
             <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-2">Outfield Legend</h3>
-            <p className="text-xs text-blue-600">LF, LC, RC, RF are highlighted in blue. Every player gets a fair share of outfield play.</p>
+            <p className="text-xs text-blue-600">{outfieldPositions.join(', ')} are highlighted in blue. Every player gets a fair share of outfield play.</p>
           </div>
         </div>
       </div>

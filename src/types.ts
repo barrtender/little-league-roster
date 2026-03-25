@@ -1,7 +1,7 @@
 
 export type Position = 
   | 'P' | 'C' | '1B' | '2B' | '3B' | 'SS' 
-  | 'LF' | 'LC' | 'RC' | 'RF' 
+  | 'LF' | 'LC' | 'RC' | 'RF' | 'CF'
   | 'Bench';
 
 export interface Player {
