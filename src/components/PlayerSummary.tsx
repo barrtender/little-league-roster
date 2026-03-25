@@ -14,38 +14,39 @@ export const PlayerSummary: React.FC<PlayerSummaryProps> = ({ lineup, players })
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(player => {
       let pitcher = 0;
-    let catcher = 0;
-    let infield = 0;
-    let outfield = 0;
-    let bench = 0;
+      let catcher = 0;
+      let infield = 0;
+      let outfield = 0;
+      let bench = 0;
 
-    lineup.forEach(inning => {
-      let assigned = false;
-      Object.entries(inning.assignments).forEach(([pos, playerId]) => {
-        if (playerId === player.id) {
-          assigned = true;
-          if (pos === 'P') pitcher++;
-          if (pos === 'C') catcher++;
-          if (INFIELD_POSITIONS.includes(pos as any)) {
-            infield++;
-          } else if (pos !== 'Bench') {
-            outfield++;
+      lineup.forEach(inning => {
+        let assigned = false;
+        Object.entries(inning.assignments).forEach(([pos, playerId]) => {
+          if (playerId === player.id) {
+            assigned = true;
+            if (pos === 'P') pitcher++;
+            if (pos === 'C') catcher++;
+            if (INFIELD_POSITIONS.includes(pos as any)) {
+              infield++;
+            } else if (pos !== 'Bench') {
+              outfield++;
+            }
           }
-        }
+        });
+        if (!assigned) bench++;
       });
-      if (!assigned) bench++;
-    });
 
-    return {
-      id: player.id,
-      name: player.name,
-      pitcher,
-      catcher,
-      infield,
-      outfield,
-      bench
-    };
-  });
+      return {
+        id: player.id,
+        name: player.name,
+        pitcher,
+        catcher,
+        infield,
+        outfield,
+        bench,
+        isAbsent: !!player.isAbsent
+      };
+    });
 
   return (
     <div className="mt-12 bg-white rounded-2xl shadow-sm border border-black/5 p-6">
@@ -71,7 +72,14 @@ export const PlayerSummary: React.FC<PlayerSummaryProps> = ({ lineup, players })
                 transition={{ delay: idx * 0.05 }}
                 className="border-b border-zinc-100 hover:bg-zinc-50 transition-colors"
               >
-                <td className="py-3 px-4 font-medium text-zinc-900">{stat.name}</td>
+                <td className="py-3 px-4 font-medium text-zinc-900">
+                  {stat.name}
+                  {stat.isAbsent && (
+                    <span className="ml-2 text-[10px] text-amber-600 font-bold uppercase tracking-tighter">
+                      Absent
+                    </span>
+                  )}
+                </td>
                 <td className="py-3 px-4 text-center">
                   <span className={`px-2 py-1 rounded-md text-xs font-bold ${stat.pitcher > 0 ? 'bg-amber-100 text-amber-700' : 'text-zinc-300'}`}>
                     {stat.pitcher}

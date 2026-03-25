@@ -87,12 +87,31 @@ export const PlayerInput: React.FC<PlayerInputProps> = ({ players, onAddPlayer, 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="flex items-center justify-between p-4 bg-white border border-zinc-200 rounded-xl hover:border-emerald-200 hover:shadow-sm transition-all group"
+              className={`flex items-center justify-between p-4 border rounded-xl transition-all group ${
+                player.isAbsent 
+                  ? 'bg-zinc-50 border-zinc-200 opacity-60' 
+                  : 'bg-white border-zinc-200 hover:border-emerald-200 hover:shadow-sm'
+              }`}
             >
               <div className="flex-1">
-                <span className="font-medium text-zinc-900">{player.name}</span>
+                <span className={`font-medium ${player.isAbsent ? 'text-zinc-400 line-through' : 'text-zinc-900'}`}>
+                  {player.name}
+                </span>
               </div>
               <div className="flex items-center gap-6 mr-4">
+                <label className="flex items-center gap-2 cursor-pointer group/toggle">
+                  <input
+                    type="checkbox"
+                    checked={player.isAbsent}
+                    onChange={(e) => onUpdatePlayer({ ...player, isAbsent: e.target.checked })}
+                    className="w-4 h-4 rounded border-zinc-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <span className={`text-[10px] uppercase tracking-wider font-bold transition-colors ${
+                    player.isAbsent ? 'text-amber-600' : 'text-zinc-400 group-hover/toggle:text-zinc-600'
+                  }`}>
+                    Absent
+                  </span>
+                </label>
                 <div className="flex items-center gap-2">
                   <span className="text-xs uppercase tracking-wider font-bold text-zinc-400">P</span>
                   {player.canPitch ? <Check size={16} className="text-emerald-600" /> : <X size={16} className="text-zinc-300" />}

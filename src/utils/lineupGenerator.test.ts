@@ -393,4 +393,53 @@ describe('generateLineup', () => {
       expect(player1Infield).toBeGreaterThanOrEqual(2);
     });
   });
+
+  describe('Absent Players', () => {
+    it('excludes absent players from the lineup', () => {
+      const players = getSampleRoster({ playerCount: 12, pitcherAndCatcherCount: 6 });
+      players[0].isAbsent = true;
+      players[1].isAbsent = true;
+      
+      const lineup = generateLineup(players, TEST_SEED);
+      
+      // With 12 players and 2 absent, we have 10 active players.
+      // 10 active players should fill all 10 positions each inning.
+      lineup.forEach(inning => {
+        const assignedIds = Object.values(inning.assignments).filter(id => id !== null);
+        expect(assignedIds).toHaveLength(10);
+        expect(assignedIds).not.toContain(players[0].id);
+        expect(assignedIds).not.toContain(players[1].id);
+      });
+      
+      // Everyone should play every inning (6 innings total)
+      players.slice(2).forEach(player => {
+        const playCount = lineup.filter(inning => Object.values(inning.assignments).includes(player.id)).length;
+        expect(playCount).toBe(6);
+      });
+    });
+
+    it('ignores locks for absent players', () => {
+      const players = getSampleRoster({ playerCount: 12, pitcherAndCatcherCount: 6 });
+      const absentPlayer = players[0];
+      absentPlayer.isAbsent = true;
+      
+      const locks: GameLineup = [
+        {
+          inning: 1,
+          assignments: {
+            P: absentPlayer.id,
+            C: null, '1B': null, '2B': null, '3B': null, SS: null,
+            LF: null, LC: null, RC: null, RF: null, CF: null, Bench: null
+          },
+          lockedPositions: ['P']
+        }
+      ];
+
+      const lineup = generateLineup(players, TEST_SEED, locks);
+      
+      // Inning 1 P should NOT be the absent player
+      expect(lineup[0].assignments.P).not.toBe(absentPlayer.id);
+      expect(lineup[0].assignments.P).not.toBeNull();
+    });
+  });
 });

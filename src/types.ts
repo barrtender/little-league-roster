@@ -9,6 +9,7 @@ export interface Player {
   name: string;
   canPitch: boolean;
   canCatch: boolean;
+  isAbsent?: boolean;
 }
 
 export interface InningAssignment {

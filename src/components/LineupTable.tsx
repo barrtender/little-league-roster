@@ -5,7 +5,7 @@ import { getAllPlayingPositions, POSITION_LABELS, INFIELD_POSITIONS, getOutfield
 import { motion, AnimatePresence } from 'motion/react';
 import { PlayerSummary } from './PlayerSummary';
 
-import { Share2, Printer, Check, ArrowDownToLine, UserPlus2, Lock, Unlock, ArrowLeftRight, X as CloseIcon } from 'lucide-react';
+import { Share2, Printer, Check, ArrowDownToLine, UserPlus2, Lock, Unlock, ArrowLeftRight, X as CloseIcon, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 
 interface LineupTableProps {
@@ -207,7 +207,9 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                 </td>
                 {lineup.map((inning, idx) => {
                   const playerId = inning.assignments[pos];
-                  const playerName = getPlayerName(playerId);
+                  const player = players.find(p => p.id === playerId);
+                  const playerName = player?.name || null;
+                  const isAbsent = !!player?.isAbsent;
                   const isAvailableForAssignment = !playerId && (selectedBenchPlayer?.inningIndex === idx || selectedCell?.inningIndex === idx);
                   const isLocked = inning.lockedPositions?.includes(pos);
                   const isSelected = selectedCell?.inningIndex === idx && selectedCell?.pos === pos;
@@ -236,21 +238,34 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                         onClick={handleCellClick}
                         className={`w-full h-full min-h-[60px] flex flex-col items-center justify-center p-2 cursor-pointer transition-all ${
                           isSelected ? 'bg-amber-50 ring-2 ring-inset ring-amber-400 z-10' : 
+                          isAbsent ? 'bg-amber-50/50 hover:bg-amber-100/50' :
                           isAvailableForAssignment ? 'bg-emerald-50 hover:bg-emerald-100' : 
                           'hover:bg-zinc-50'
                         }`}
                       >
                         {playerName ? (
                           <>
-                            <div className="flex items-center justify-center gap-1 mb-1">
-                              {isLocked && <Lock size={10} className="text-amber-600" />}
-                              <motion.span 
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className={`text-sm font-medium leading-tight ${isLocked ? 'text-amber-700' : INFIELD_POSITIONS.includes(pos) ? 'text-emerald-700' : 'text-blue-700'}`}
-                              >
-                                {playerName}
-                              </motion.span>
+                            <div className="flex flex-col items-center justify-center gap-1 mb-1">
+                              <div className="flex items-center gap-1">
+                                {isLocked && <Lock size={10} className="text-amber-600" />}
+                                {isAbsent && <AlertTriangle size={10} className="text-amber-600" />}
+                                <motion.span 
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  className={`text-sm font-medium leading-tight ${
+                                    isAbsent ? 'text-amber-700 line-through opacity-60' :
+                                    isLocked ? 'text-amber-700' : 
+                                    INFIELD_POSITIONS.includes(pos) ? 'text-emerald-700' : 'text-blue-700'
+                                  }`}
+                                >
+                                  {playerName}
+                                </motion.span>
+                              </div>
+                              {isAbsent && (
+                                <span className="text-[8px] font-bold text-amber-600 uppercase tracking-tighter leading-none">
+                                  Absent
+                                </span>
+                              )}
                             </div>
                             
                             {isSelected && (
@@ -321,7 +336,9 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                           className={`no-print text-xs font-medium px-2 py-1 rounded-md transition-all border ${
                             isSelected 
                               ? 'bg-amber-100 text-amber-800 border-amber-300 shadow-sm scale-105' 
-                              : 'text-zinc-500 hover:bg-zinc-200 border-transparent'
+                              : p.isAbsent
+                                ? 'text-amber-600/60 hover:bg-amber-50 border-transparent italic line-through'
+                                : 'text-zinc-500 hover:bg-zinc-200 border-transparent'
                           }`}
                         >
                           {p.name}

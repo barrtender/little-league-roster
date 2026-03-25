@@ -63,9 +63,11 @@ export default function App() {
     setPlayers(players.map(p => p.id === updated.id ? updated : p));
   };
 
+  const activePlayers = players.filter(p => !p.isAbsent);
+
   const handleGenerate = () => {
-    if (players.length < (6 + outfieldCount + 1)) {
-      alert(`You need at least ${6 + outfieldCount + 1} players to generate a full lineup.`);
+    if (activePlayers.length < (6 + outfieldCount + 1)) {
+      alert(`You need at least ${6 + outfieldCount + 1} active players to generate a full lineup. You currently have ${activePlayers.length} active.`);
       return;
     }
     const newLineup = generateLineup(players, undefined, undefined, outfieldCount);
@@ -75,6 +77,10 @@ export default function App() {
 
   const handleRegenerate = () => {
     if (!lineup) return;
+    if (activePlayers.length < (6 + outfieldCount + 1)) {
+      alert(`You need at least ${6 + outfieldCount + 1} active players to generate a full lineup. You currently have ${activePlayers.length} active.`);
+      return;
+    }
     const newLineup = generateLineup(players, undefined, lineup, outfieldCount);
     setLineup(newLineup);
   };
@@ -270,7 +276,7 @@ export default function App() {
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
               <Users size={14} className="text-emerald-600" />
-              {players.length} Players
+              {activePlayers.length} Active / {players.length} Total
             </span>
             <span className="w-px h-3 bg-zinc-200" />
             <span>6 Innings</span>

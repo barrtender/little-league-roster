@@ -25,6 +25,7 @@ function shuffle<T>(array: T[], random: () => number): T[] {
 export function generateLineup(players: Player[], seed?: number, locks?: GameLineup, outfieldCount: number = 4): GameLineup {
   const numInnings = 6;
   const outfieldPositions = getOutfieldPositions(outfieldCount);
+  const activePlayers = players.filter(p => !p.isAbsent);
   
   // Use provided seed or a random one
   let effectiveSeed = seed ?? Math.floor(Math.random() * 1000000);
@@ -33,7 +34,7 @@ export function generateLineup(players: Player[], seed?: number, locks?: GameLin
   for (let attempt = 0; attempt < 50; attempt++) {
     const isLastAttempt = attempt === 49;
     const random = createRandom(effectiveSeed + attempt);
-    const shuffledPlayers = shuffle(players, random);
+    const shuffledPlayers = shuffle(activePlayers, random);
     const lineup: GameLineup = [];
     let isValid = true;
 
@@ -106,7 +107,8 @@ export function generateLineup(players: Player[], seed?: number, locks?: GameLin
         });
       }
 
-      const fairInfield = Math.ceil((numInnings * 6) / shuffledPlayers.length);
+      const numInfieldPositions = (anyPitchers ? 1 : 0) + (anyCatchers ? 1 : 0) + 4;
+      const fairInfield = Math.ceil((numInnings * numInfieldPositions) / shuffledPlayers.length);
       const fairOutfield = Math.ceil((numInnings * outfieldCount) / shuffledPlayers.length);
 
       // Helper to check if a player can play a position this inning
@@ -133,9 +135,7 @@ export function generateLineup(players: Player[], seed?: number, locks?: GameLin
       };
 
       // 1. Assign Bench first to satisfy bench rules
-      const activePositionsCount = (anyPitchers ? 1 : 0) + (anyCatchers ? 1 : 0) + (4 + (outfieldCount - 4)); // 6 infield - 2 (P/C) + outfieldCount
-      // Actually simpler:
-      const totalActivePositions = 6 + outfieldCount;
+      const totalActivePositions = (anyPitchers ? 1 : 0) + (anyCatchers ? 1 : 0) + 4 + outfieldCount;
       const totalBenchNeeded = Math.max(0, shuffledPlayers.length - totalActivePositions);
       
       // Count how many are already assigned to bench via locks
