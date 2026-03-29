@@ -4,6 +4,7 @@ import { PlayerInput } from './components/PlayerInput';
 import { LineupTable } from './components/LineupTable';
 import { generateLineup } from './utils/lineupGenerator';
 import { getSampleRoster } from './utils/sampleData';
+import { decompressLineup } from './utils/sharing';
 import { ClipboardList, Users, RefreshCw, ChevronLeft, Beaker, Github } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -19,18 +20,14 @@ export default function App() {
     const sharedData = params.get('data');
 
     if (sharedData) {
-      try {
-        const decoded = JSON.parse(decodeURIComponent(escape(atob(sharedData))));
-        if (decoded.players) setPlayers(decoded.players);
-        if (decoded.outfieldCount) setOutfieldCount(decoded.outfieldCount);
-        if (decoded.lineup) {
-          setLineup(decoded.lineup);
-          setView('output');
-        }
+      const decoded = decompressLineup(sharedData);
+      if (decoded) {
+        setPlayers(decoded.players);
+        setOutfieldCount(decoded.outfieldCount as 3 | 4);
+        setLineup(decoded.lineup);
+        setView('output');
         // Clear the URL parameter after loading to avoid re-loading on refresh
         window.history.replaceState({}, '', window.location.pathname);
-      } catch (e) {
-        console.error('Failed to load shared data', e);
       }
     } else {
       const saved = localStorage.getItem('baseball-roster');

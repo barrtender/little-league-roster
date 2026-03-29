@@ -7,6 +7,7 @@ import { PlayerSummary } from './PlayerSummary';
 
 import { Share2, Printer, Check, ArrowDownToLine, UserPlus2, Lock, Unlock, ArrowLeftRight, X as CloseIcon, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
+import { compressLineup } from '../utils/sharing';
 
 interface LineupTableProps {
   lineup: GameLineup;
@@ -28,7 +29,7 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
   };
 
   const handleShare = () => {
-    const data = btoa(unescape(encodeURIComponent(JSON.stringify({ players, lineup }))));
+    const data = compressLineup(players, lineup, outfieldCount);
     const url = `${window.location.origin}${window.location.pathname}?data=${data}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
