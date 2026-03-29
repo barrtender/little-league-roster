@@ -145,6 +145,12 @@ export function generateLineup(players: Player[], seed?: number, locks?: GameLin
         if (pos === 'P') {
           const p = shuffledPlayers.find(player => player.id === playerId)!;
           if (!p.canPitch || s.pitching >= 2) return false;
+          
+          // Rule 3b: Pitchers cannot pitch non-consecutive innings
+          if (s.pitching > 0) {
+            const lastPos = s.history[s.history.length - 1];
+            if (lastPos !== 'P') return false;
+          }
         }
         if (pos === 'C') {
           const p = shuffledPlayers.find(player => player.id === playerId)!;

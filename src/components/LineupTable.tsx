@@ -238,6 +238,26 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                   const isLocked = inning.lockedPositions?.includes(pos);
                   const isSelected = selectedCell?.inningIndex === idx && selectedCell?.pos === pos;
 
+                  const isPitchingViolation = pos === 'P' && playerId && (() => {
+                    const player = players.find(p => p.id === playerId);
+                    if (!player) return false;
+                    
+                    let firstInningPitched = -1;
+                    let lastInningPitched = -1;
+                    let totalInningsPitched = 0;
+                    
+                    for (let i = 0; i <= idx; i++) {
+                      if (lineup[i].assignments.P === playerId) {
+                        if (firstInningPitched === -1) firstInningPitched = i;
+                        lastInningPitched = i;
+                        totalInningsPitched++;
+                      }
+                    }
+                    
+                    if (totalInningsPitched === 0) return false;
+                    return totalInningsPitched !== (lastInningPitched - firstInningPitched + 1);
+                  })();
+
                   const handleCellClick = () => {
                     if (selectedBenchPlayer && selectedBenchPlayer.inningIndex === idx) {
                       // If a bench player is selected, assign them to this position (swapping if occupied)
@@ -277,7 +297,7 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                         onClick={handleCellClick}
                         className={`w-full h-full min-h-[60px] flex flex-col items-center justify-center p-2 cursor-pointer transition-all ${
                           isSelected ? 'bg-amber-50 ring-2 ring-inset ring-amber-400 z-10' : 
-                          isAbsent ? 'bg-amber-50/50 hover:bg-amber-100/50' :
+                          (isAbsent || isPitchingViolation) ? 'bg-amber-50/50 hover:bg-amber-100/50' :
                           isAvailableForAssignment ? 'bg-emerald-50 hover:bg-emerald-100' : 
                           'hover:bg-zinc-50'
                         }`}
@@ -287,12 +307,12 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                             <div className="flex flex-col items-center justify-center gap-1 mb-1">
                               <div className="flex items-center gap-1">
                                 {isLocked && <Lock size={10} className="text-amber-600" />}
-                                {isAbsent && <AlertTriangle size={10} className="text-amber-600" />}
+                                {(isAbsent || isPitchingViolation) && <AlertTriangle size={10} className="text-amber-600" />}
                                 <motion.span 
                                   initial={{ opacity: 0 }}
                                   animate={{ opacity: 1 }}
                                   className={`text-sm font-medium leading-tight ${
-                                    isAbsent ? 'text-amber-700 line-through opacity-60' :
+                                    (isAbsent || isPitchingViolation) ? 'text-amber-700 line-through opacity-60' :
                                     isLocked ? 'text-amber-700' : 
                                     INFIELD_POSITIONS.includes(pos) ? 'text-emerald-700' : 'text-blue-700'
                                   }`}
@@ -303,6 +323,11 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                               {isAbsent && (
                                 <span className="text-[8px] font-bold text-amber-600 uppercase tracking-tighter leading-none">
                                   Absent
+                                </span>
+                              )}
+                              {isPitchingViolation && (
+                                <span className="text-[8px] font-bold text-amber-600 uppercase tracking-tighter leading-none">
+                                  Non-Consecutive P
                                 </span>
                               )}
                             </div>

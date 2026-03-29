@@ -468,4 +468,34 @@ describe('generateLineup', () => {
       expect(lineup[0].assignments.P).not.toBeNull();
     });
   });
+
+  describe('Rule 3b: Pitchers cannot pitch non-consecutive innings', () => {
+    it('satisfies Rule 3b', () => {
+      const players = getSampleRoster({ playerCount: 12, pitcherAndCatcherCount: 6 });
+      const lineup = generateLineup(players, TEST_SEED);
+      
+      players.forEach(player => {
+        let hasPitched = false;
+        let wasPitching = false;
+        let donePitching = false;
+        
+        lineup.forEach(inning => {
+          const isPitching = inning.assignments.P === player.id;
+          
+          if (isPitching) {
+            // If they are pitching now, they shouldn't be "done pitching"
+            expect(donePitching).toBe(false);
+            hasPitched = true;
+            wasPitching = true;
+          } else {
+            // If they were pitching but stopped, they are now "done pitching"
+            if (wasPitching) {
+              donePitching = true;
+            }
+            wasPitching = false;
+          }
+        });
+      });
+    });
+  });
 });
