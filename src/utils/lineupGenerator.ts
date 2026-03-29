@@ -161,12 +161,6 @@ export function generateLineup(players: Player[], seed?: number, locks?: GameLin
             
             if (sA.bench !== sB.bench) return sA.bench - sB.bench;
             
-            const pA = shuffledPlayers.find(p => p.id === a.id)!;
-            const pB = shuffledPlayers.find(p => p.id === b.id)!;
-            const isSpecialistA = pA.canPitch || pA.canCatch;
-            const isSpecialistB = pB.canPitch || pB.canCatch;
-            if (isSpecialistA !== isSpecialistB) return isSpecialistA ? 1 : -1;
-
             return sB.totalPlayed - sA.totalPlayed;
           });
 
