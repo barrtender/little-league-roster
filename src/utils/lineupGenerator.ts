@@ -48,9 +48,8 @@ export function generateLineup(players: Player[], seed?: number, locks?: GameLin
       catching: 0,
       totalPlayed: 0,
       consecutiveBench: 0,
-      lastPosition: null as Position | null,
-      positionCounts: {} as Record<string, number>,
-      history: [] as (Position | 'Bench')[]
+      positionCounts: {} as Partial<Record<Position, number>>,
+      history: [] as Position[]
     }));
 
     const getStat = (id: string) => stats.find(s => s.id === id)!;

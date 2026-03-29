@@ -48,7 +48,7 @@ export function compressLineup(players: Player[], lineup: GameLineup, outfieldCo
 
 export function decompressLineup(compressed: string): { players: Player[], lineup: GameLineup, outfieldCount: number } | null {
   try {
-    const data = JSON.parse(decodeURIComponent(escape(atob(compressed))));
+    const data = JSON.parse(decodeURIComponent(escape(atob(compressed)))) as unknown[];
     
     // Version 1: Full assignment format
     if (data[0] === 1) {

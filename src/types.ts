@@ -24,9 +24,10 @@ export type GameLineup = InningAssignment[];
 export interface PlayerStats {
   id: string;
   name: string;
-  infieldCount: number;
-  outfieldCount: number;
-  benchCount: number;
-  pitchingCount: number;
-  catchingCount: number;
+  pitcher: number;
+  catcher: number;
+  infield: number;
+  outfield: number;
+  bench: number;
+  isAbsent: boolean;
 }

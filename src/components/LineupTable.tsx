@@ -24,6 +24,27 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
   const playingPositions = getAllPlayingPositions(outfieldCount);
   const outfieldPositions = getOutfieldPositions(outfieldCount);
 
+  const getPitchingViolation = (playerId: string | null, inningIdx: number) => {
+    if (!playerId) return false;
+    const player = players.find(p => p.id === playerId);
+    if (!player) return false;
+    
+    let firstInningPitched = -1;
+    let lastInningPitched = -1;
+    let totalInningsPitched = 0;
+    
+    for (let i = 0; i <= inningIdx; i++) {
+      if (lineup[i].assignments.P === playerId) {
+        if (firstInningPitched === -1) firstInningPitched = i;
+        lastInningPitched = i;
+        totalInningsPitched++;
+      }
+    }
+    
+    if (totalInningsPitched === 0) return false;
+    return totalInningsPitched !== (lastInningPitched - firstInningPitched + 1);
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -185,13 +206,13 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                         ) : (
                           <>Select a position for <span className="font-bold">{players.find(p => p.id === selectedBenchPlayer.playerId)?.name}</span></>
                         )
-                      ) : (
-                        lineup[selectedCell!.inningIndex].lockedPositions?.includes(selectedCell!.pos) ? (
-                          <>Unlock <span className="font-bold">{players.find(p => p.id === lineup[selectedCell!.inningIndex].assignments[selectedCell!.pos])?.name}</span> to swap/move this player</>
+                      ) : selectedCell ? (
+                        lineup[selectedCell.inningIndex].lockedPositions?.includes(selectedCell.pos) ? (
+                          <>Unlock <span className="font-bold">{players.find(p => p.id === lineup[selectedCell.inningIndex].assignments[selectedCell.pos])?.name}</span> to swap/move this player</>
                         ) : (
-                          <>Select a position or bench player to swap/move <span className="font-bold">{players.find(p => p.id === lineup[selectedCell!.inningIndex].assignments[selectedCell!.pos])?.name}</span></>
+                          <>Select a position or bench player to swap/move <span className="font-bold">{players.find(p => p.id === lineup[selectedCell.inningIndex].assignments[selectedCell.pos])?.name}</span></>
                         )
-                      )}
+                      ) : null}
                     </span>
                   </div>
                   <button 
@@ -238,26 +259,7 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                   const isAvailableForAssignment = !playerId && (selectedBenchPlayer?.inningIndex === idx || selectedCell?.inningIndex === idx);
                   const isLocked = inning.lockedPositions?.includes(pos);
                   const isSelected = selectedCell?.inningIndex === idx && selectedCell?.pos === pos;
-
-                  const isPitchingViolation = pos === 'P' && playerId && (() => {
-                    const player = players.find(p => p.id === playerId);
-                    if (!player) return false;
-                    
-                    let firstInningPitched = -1;
-                    let lastInningPitched = -1;
-                    let totalInningsPitched = 0;
-                    
-                    for (let i = 0; i <= idx; i++) {
-                      if (lineup[i].assignments.P === playerId) {
-                        if (firstInningPitched === -1) firstInningPitched = i;
-                        lastInningPitched = i;
-                        totalInningsPitched++;
-                      }
-                    }
-                    
-                    if (totalInningsPitched === 0) return false;
-                    return totalInningsPitched !== (lastInningPitched - firstInningPitched + 1);
-                  })();
+                  const isPitchingViolation = pos === 'P' && getPitchingViolation(playerId, idx);
 
                   const handleCellClick = () => {
                     if (selectedBenchPlayer && selectedBenchPlayer.inningIndex === idx) {

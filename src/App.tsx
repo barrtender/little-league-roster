@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Player, GameLineup } from './types';
+import { Player, GameLineup, Position } from './types';
 import { PlayerInput } from './components/PlayerInput';
 import { LineupTable } from './components/LineupTable';
 import { generateLineup } from './utils/lineupGenerator';
@@ -61,10 +61,11 @@ export default function App() {
   };
 
   const activePlayers = players.filter(p => !p.isAbsent);
+  const minPlayersNeeded = 6 + outfieldCount + 1;
 
   const handleGenerate = () => {
-    if (activePlayers.length < (6 + outfieldCount + 1)) {
-      alert(`You need at least ${6 + outfieldCount + 1} active players to generate a full lineup. You currently have ${activePlayers.length} active.`);
+    if (activePlayers.length < minPlayersNeeded) {
+      alert(`You need at least ${minPlayersNeeded} active players to generate a full lineup. You currently have ${activePlayers.length} active.`);
       return;
     }
     const newLineup = generateLineup(players, undefined, undefined, outfieldCount);
@@ -74,8 +75,8 @@ export default function App() {
 
   const handleRegenerate = () => {
     if (!lineup) return;
-    if (activePlayers.length < (6 + outfieldCount + 1)) {
-      alert(`You need at least ${6 + outfieldCount + 1} active players to generate a full lineup. You currently have ${activePlayers.length} active.`);
+    if (activePlayers.length < minPlayersNeeded) {
+      alert(`You need at least ${minPlayersNeeded} active players to generate a full lineup. You currently have ${activePlayers.length} active.`);
       return;
     }
     const newLineup = generateLineup(players, undefined, lineup, outfieldCount);
@@ -94,16 +95,12 @@ export default function App() {
         const newAssignments = { ...inning.assignments };
         let newLockedPositions = inning.lockedPositions ? [...inning.lockedPositions] : [];
         
-        if (newCount === 3) {
-          // Moving from 4 to 3: Clear LC and RC
-          newAssignments.LC = null;
-          newAssignments.RC = null;
-          newLockedPositions = newLockedPositions.filter(p => p !== 'LC' && p !== 'RC');
-        } else {
-          // Moving from 3 to 4: Clear CF
-          newAssignments.CF = null;
-          newLockedPositions = newLockedPositions.filter(p => p !== 'CF');
-        }
+        const positionsToClear: Position[] = newCount === 3 ? ['LC', 'RC'] : ['CF'];
+        
+        positionsToClear.forEach(pos => {
+          newAssignments[pos] = null;
+          newLockedPositions = newLockedPositions.filter(p => p !== pos);
+        });
         
         return {
           ...inning,

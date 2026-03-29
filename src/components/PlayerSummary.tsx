@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { GameLineup, Player } from '../types';
+import { GameLineup, Player, PlayerStats, Position } from '../types';
 import { INFIELD_POSITIONS } from '../constants';
 import { motion } from 'motion/react';
 
@@ -10,7 +10,7 @@ interface PlayerSummaryProps {
 }
 
 export const PlayerSummary: React.FC<PlayerSummaryProps> = ({ lineup, players }) => {
-  const stats = [...players]
+  const stats: PlayerStats[] = [...players]
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(player => {
       let pitcher = 0;
@@ -26,7 +26,7 @@ export const PlayerSummary: React.FC<PlayerSummaryProps> = ({ lineup, players })
             assigned = true;
             if (pos === 'P') pitcher++;
             if (pos === 'C') catcher++;
-            if (INFIELD_POSITIONS.includes(pos as any)) {
+            if (INFIELD_POSITIONS.includes(pos as Position)) {
               infield++;
             } else if (pos !== 'Bench') {
               outfield++;
