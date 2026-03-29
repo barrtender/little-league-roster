@@ -44,11 +44,27 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
       inning.lockedPositions = lockedPositions.filter(p => p !== pos);
     } else {
       inning.lockedPositions = [...lockedPositions, pos];
+      setSelectedCell(null);
     }
     
     newLineup[inningIndex] = inning;
     onUpdateLineup(newLineup);
-    setSelectedCell(null);
+  };
+
+  const toggleBenchLock = (inningIndex: number, playerId: string) => {
+    const newLineup = [...lineup];
+    const inning = { ...newLineup[inningIndex] };
+    const lockedBench = [...(inning.lockedBenchPlayerIds || [])];
+    
+    if (lockedBench.includes(playerId)) {
+      inning.lockedBenchPlayerIds = lockedBench.filter(id => id !== playerId);
+    } else {
+      inning.lockedBenchPlayerIds = [...lockedBench, playerId];
+      setSelectedBenchPlayer(null);
+    }
+    
+    newLineup[inningIndex] = inning;
+    onUpdateLineup(newLineup);
   };
 
   const moveToBench = (inningIndex: number, pos: Position) => {
@@ -163,9 +179,17 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                     <div className="w-2 h-2 bg-amber-400 rounded-full" />
                     <span>
                       {selectedBenchPlayer ? (
-                        <>Select a position for <span className="font-bold">{players.find(p => p.id === selectedBenchPlayer.playerId)?.name}</span></>
+                        lineup[selectedBenchPlayer.inningIndex].lockedBenchPlayerIds?.includes(selectedBenchPlayer.playerId) ? (
+                          <>Unlock <span className="font-bold">{players.find(p => p.id === selectedBenchPlayer.playerId)?.name}</span> to assign this player</>
+                        ) : (
+                          <>Select a position for <span className="font-bold">{players.find(p => p.id === selectedBenchPlayer.playerId)?.name}</span></>
+                        )
                       ) : (
-                        <>Select a position or bench player to swap/move <span className="font-bold">{players.find(p => p.id === lineup[selectedCell!.inningIndex].assignments[selectedCell!.pos])?.name}</span></>
+                        lineup[selectedCell!.inningIndex].lockedPositions?.includes(selectedCell!.pos) ? (
+                          <>Unlock <span className="font-bold">{players.find(p => p.id === lineup[selectedCell!.inningIndex].assignments[selectedCell!.pos])?.name}</span> to swap/move this player</>
+                        ) : (
+                          <>Select a position or bench player to swap/move <span className="font-bold">{players.find(p => p.id === lineup[selectedCell!.inningIndex].assignments[selectedCell!.pos])?.name}</span></>
+                        )
                       )}
                     </span>
                   </div>
@@ -217,17 +241,32 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                   const handleCellClick = () => {
                     if (selectedBenchPlayer && selectedBenchPlayer.inningIndex === idx) {
                       // If a bench player is selected, assign them to this position (swapping if occupied)
-                      assignFromBench(idx, pos);
+                      const benchPlayerIsLocked = lineup[idx].lockedBenchPlayerIds?.includes(selectedBenchPlayer.playerId);
+                      if (!benchPlayerIsLocked && !isLocked) {
+                        assignFromBench(idx, pos);
+                        return;
+                      }
                     } else if (selectedCell && selectedCell.inningIndex === idx) {
                       // If a field position is selected, swap/move to this position
                       if (selectedCell.pos === pos) {
                         setSelectedCell(null);
-                      } else {
-                        swapOrMovePlayers(idx, selectedCell.pos, pos);
+                        return;
                       }
-                    } else if (playerId) {
-                      // No selection yet, select this occupied position
+
+                      const sourcePosIsLocked = lineup[idx].lockedPositions?.includes(selectedCell.pos);
+                      if (!sourcePosIsLocked && !isLocked) {
+                        swapOrMovePlayers(idx, selectedCell.pos, pos);
+                        return;
+                      }
+                    }
+
+                    if (playerId) {
+                      // Select this occupied position
                       setSelectedCell({ inningIndex: idx, pos });
+                      setSelectedBenchPlayer(null);
+                    } else {
+                      // Clicked an empty cell while something was selected but locked
+                      setSelectedCell(null);
                       setSelectedBenchPlayer(null);
                     }
                   };
@@ -275,15 +314,17 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                                   className={`p-1.5 rounded-md transition-all ${isLocked ? 'bg-amber-100 text-amber-700' : 'bg-white text-zinc-400 border border-zinc-200'}`}
                                   title={isLocked ? "Unlock" : "Lock"}
                                 >
-                                  {isLocked ? <Lock size={14} /> : <Unlock size={14} />}
+                                  {isLocked ? <Unlock size={14} /> : <Lock size={14} />}
                                 </button>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); moveToBench(idx, pos); }}
-                                  className="p-1.5 bg-white text-zinc-400 border border-zinc-200 rounded-md hover:text-amber-600 hover:bg-amber-50 transition-all"
-                                  title="Bench"
-                                >
-                                  <ArrowDownToLine size={14} />
-                                </button>
+                                {!isLocked && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); moveToBench(idx, pos); }}
+                                    className="p-1.5 bg-white text-zinc-400 border border-zinc-200 rounded-md hover:text-amber-600 hover:bg-amber-50 transition-all"
+                                    title="Bench"
+                                  >
+                                    <ArrowDownToLine size={14} />
+                                  </button>
+                                )}
                               </div>
                             )}
                           </>
@@ -307,42 +348,65 @@ export const LineupTable: React.FC<LineupTableProps> = ({ lineup, players, onUpd
                   <div className="flex flex-col gap-1.5">
                     {getBenchPlayers(idx).map(p => {
                       const isSelected = (selectedBenchPlayer?.inningIndex === idx && selectedBenchPlayer?.playerId === p.id);
+                      const isLocked = lineup[idx].lockedBenchPlayerIds?.includes(p.id);
                       return (
-                        <button
-                          key={p.id}
+                        <div 
+                          key={p.id} 
                           onClick={() => {
                             if (isSelected) {
                               setSelectedBenchPlayer(null);
-                            } else if (selectedCell && selectedCell.inningIndex === idx) {
+                              return;
+                            } 
+                            
+                            if (selectedCell && selectedCell.inningIndex === idx) {
                               // One-click swap: Move selected defensive player to bench, 
                               // and move this bench player to that position
                               const pos = selectedCell.pos;
-                              const newLineup = [...lineup];
-                              const inning = { ...newLineup[idx] };
+                              const sourcePosIsLocked = lineup[idx].lockedPositions?.includes(pos);
                               
-                              inning.assignments = {
-                                ...inning.assignments,
-                                [pos]: p.id
-                              };
-                              
-                              newLineup[idx] = inning;
-                              onUpdateLineup(newLineup);
-                              setSelectedCell(null);
-                            } else {
-                              setSelectedBenchPlayer({ inningIndex: idx, playerId: p.id });
-                              setSelectedCell(null);
+                              if (!isLocked && !sourcePosIsLocked) {
+                                const newLineup = [...lineup];
+                                const inning = { ...newLineup[idx] };
+                                
+                                inning.assignments = {
+                                  ...inning.assignments,
+                                  [pos]: p.id
+                                };
+                                
+                                newLineup[idx] = inning;
+                                onUpdateLineup(newLineup);
+                                setSelectedCell(null);
+                                return;
+                              }
                             }
+                            
+                            setSelectedBenchPlayer({ inningIndex: idx, playerId: p.id });
+                            setSelectedCell(null);
                           }}
-                          className={`no-print text-xs font-medium px-2 py-1 rounded-md transition-all border ${
+                          className={`no-print text-xs font-medium px-2 py-1.5 rounded-md transition-all border flex flex-col items-center justify-center gap-1 w-full cursor-pointer ${
                             isSelected 
                               ? 'bg-amber-100 text-amber-800 border-amber-300 shadow-sm scale-105' 
                               : p.isAbsent
                                 ? 'text-amber-600/60 hover:bg-amber-50 border-transparent italic line-through'
-                                : 'text-zinc-500 hover:bg-zinc-200 border-transparent'
+                                : isLocked
+                                  ? 'text-amber-700 border-transparent'
+                                  : 'text-zinc-500 hover:bg-zinc-200 border-transparent'
                           }`}
                         >
-                          {p.name}
-                        </button>
+                          <div className="flex items-center justify-center gap-1">
+                            {isLocked && <Lock size={10} />}
+                            {p.name}
+                          </div>
+                          {isSelected && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleBenchLock(idx, p.id); }}
+                              className={`no-print p-1 rounded-md transition-all ${isLocked ? 'bg-amber-200 text-amber-900 shadow-inner' : 'bg-white text-zinc-400 border border-zinc-200 hover:text-amber-600 hover:border-amber-300'}`}
+                              title={isLocked ? "Unlock Bench" : "Lock Bench"}
+                            >
+                              {isLocked ? <Unlock size={12} /> : <Lock size={12} />}
+                            </button>
+                          )}
+                        </div>
                       );
                     })}
                     {getBenchPlayers(idx).length === 0 && <span className="text-xs text-zinc-300">-</span>}

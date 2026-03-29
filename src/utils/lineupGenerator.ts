@@ -63,7 +63,9 @@ export function generateLineup(players: Player[], seed?: number, locks?: GameLin
         assignments: {
           P: null, C: null, '1B': null, '2B': null, '3B': null, SS: null,
           LF: null, LC: null, RC: null, RF: null, CF: null, Bench: null
-        }
+        },
+        lockedPositions: [],
+        lockedBenchPlayerIds: []
       };
 
       const assignedThisInning = new Set<string>();
@@ -102,6 +104,23 @@ export function generateLineup(players: Player[], seed?: number, locks?: GameLin
             if (!inningAssignment.lockedPositions) inningAssignment.lockedPositions = [];
             if (!inningAssignment.lockedPositions.includes(position)) {
               inningAssignment.lockedPositions.push(position);
+            }
+          }
+        });
+
+        // Apply bench locks
+        const benchLocks = inningLocks.lockedBenchPlayerIds || [];
+        benchLocks.forEach(playerId => {
+          if (playerId && shuffledPlayers.some(p => p.id === playerId)) {
+            if (!assignedThisInning.has(playerId)) {
+              assignedThisInning.add(playerId);
+              if (!inningAssignment.lockedBenchPlayerIds) inningAssignment.lockedBenchPlayerIds = [];
+              inningAssignment.lockedBenchPlayerIds.push(playerId);
+              
+              const s = getStat(playerId);
+              s.bench++;
+              s.consecutiveBench++;
+              s.history.push('Bench');
             }
           }
         });

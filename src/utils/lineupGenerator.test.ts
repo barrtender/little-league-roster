@@ -394,6 +394,32 @@ describe('generateLineup', () => {
     });
   });
 
+  describe('Bench Locking', () => {
+    it('respects locked bench players', () => {
+      const players = getSampleRoster({ playerCount: 12, pitcherAndCatcherCount: 6 });
+      const playerToLock = players[0];
+      
+      const locks: GameLineup = [
+        {
+          inning: 1,
+          assignments: {
+            P: null, C: null, '1B': null, '2B': null, '3B': null, SS: null,
+            LF: null, LC: null, RC: null, RF: null, CF: null, Bench: null
+          },
+          lockedBenchPlayerIds: [playerToLock.id]
+        }
+      ];
+      
+      const lineup = generateLineup(players, TEST_SEED, locks);
+      
+      // Inning 1 should have playerToLock on the bench
+      const inning1 = lineup[0];
+      const assignedIds = Object.values(inning1.assignments).filter(id => id !== null);
+      expect(assignedIds).not.toContain(playerToLock.id);
+      expect(inning1.lockedBenchPlayerIds).toContain(playerToLock.id);
+    });
+  });
+
   describe('Absent Players', () => {
     it('excludes absent players from the lineup', () => {
       const players = getSampleRoster({ playerCount: 12, pitcherAndCatcherCount: 6 });
